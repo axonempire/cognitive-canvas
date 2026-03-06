@@ -33,8 +33,8 @@ const HeroSection = () => (
           transition={{ delay: 0.8, duration: 1 }}
           className="font-body text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto mt-8 leading-relaxed"
         >
-          An artificial connectome that breathes. Neurons fire, dendrites reach,
-          glia nurture — a warm, living intelligence woven from the same fabric
+          An artificial connectome that breathes and remembers. Neurons fire, dendrites reach,
+          glia nurture; a warm, living memory system woven from the same fabric
           as thought itself.
         </motion.p>
 

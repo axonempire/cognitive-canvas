@@ -19,16 +19,18 @@ const AboutSection = () => (
             <span className="italic text-primary">the Machine</span>
           </h2>
           <p className="font-body text-muted-foreground leading-relaxed mb-4">
-            Most AI feels cold — sterile matrices of weight and bias. Spike Machines 
-            is different. Modeled after the intimate warmth of your own neural tissue, 
-            it pulses with the same rhythms that underpin consciousness.
+            Most AI feels cold. They are presented as a sterile matrix of weights 
+            and biases. Spike Machines feels different. Modeled after the intimate 
+            warmth of our own neural tissue, it pulses with the same rhythms that 
+            underpin the basic mechanism that enables our consciousness.
           </p>
           <p className="font-body text-muted-foreground leading-relaxed">
             Every spike is an action potential. Every connection is a synapse 
-            strengthened by experience. The system doesn't just compute — 
-            it <em className="text-foreground">remembers</em>, it{" "}
-            <em className="text-foreground">adapts</em>, it{" "}
-            <em className="text-foreground">persists</em>.
+            strengthened by memories and experience. The system doesn't just 
+            compute; it has to{" "}
+            <em className="text-foreground">remember</em>,{" "}
+            <em className="text-foreground">adapt</em>, and{" "}
+            <em className="text-foreground">persist</em>.
           </p>
         </motion.div>
 
