@@ -44,10 +44,34 @@ const AboutSection = () => (
           <div className="rounded-2xl border border-border bg-card/40 backdrop-blur-sm p-8 box-glow">
             <div className="space-y-6">
               {[
-                { label: "Neural Density", value: "12.4B", unit: "connections" },
-                { label: "Spike Rate", value: "847", unit: "Hz avg" },
-                { label: "Plasticity Index", value: "0.94", unit: "adaptive" },
-                { label: "Glia Ratio", value: "3:1", unit: "support cells" },
+                {
+                  label: "Synaptic Links",
+                  brain: "~150T synapses",
+                  brainDetail: "86B neurons × ~7K avg",
+                  system: "~15T weighted links",
+                  systemDetail: "10B vectors × 1,536-dim",
+                },
+                {
+                  label: "Signal Throughput",
+                  brain: "0.1–600 Hz",
+                  brainDetail: "~10 Hz avg cortical",
+                  system: "10⁴–10⁷ q/sec",
+                  systemDetail: "distributed ANN shards",
+                },
+                {
+                  label: "Plasticity",
+                  brain: "20–300% LTP",
+                  brainDetail: "~1.8% spine turnover/day",
+                  system: "<50 ms hot-swap",
+                  systemDetail: "no retraining needed",
+                },
+                {
+                  label: "Support Ratio",
+                  brain: "~1:1 glia:neuron",
+                  brainDetail: "Azevedo et al., 2009",
+                  system: "~1:8 GPU:shard",
+                  systemDetail: "I/O-bound topology",
+                },
               ].map((stat, i) => (
                 <motion.div
                   key={stat.label}
@@ -55,18 +79,22 @@ const AboutSection = () => (
                   whileInView={{ opacity: 1, y: 0 }}
                   transition={{ delay: 0.4 + i * 0.1, duration: 0.5 }}
                   viewport={{ once: true }}
-                  className="flex items-baseline justify-between border-b border-border/50 pb-4 last:border-0 last:pb-0"
+                  className="border-b border-border/50 pb-4 last:border-0 last:pb-0"
                 >
-                  <span className="font-body text-sm text-muted-foreground">
+                  <p className="font-body text-xs tracking-widest uppercase text-primary/50 mb-2">
                     {stat.label}
-                  </span>
-                  <div className="text-right">
-                    <span className="font-display text-2xl text-foreground">
-                      {stat.value}
-                    </span>
-                    <span className="font-body text-xs text-primary/60 ml-2">
-                      {stat.unit}
-                    </span>
+                  </p>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <p className="font-body text-[10px] uppercase tracking-wider text-muted-foreground/60 mb-0.5">Brain</p>
+                      <p className="font-display text-base text-foreground leading-tight">{stat.brain}</p>
+                      <p className="font-body text-[10px] text-muted-foreground/50">{stat.brainDetail}</p>
+                    </div>
+                    <div>
+                      <p className="font-body text-[10px] uppercase tracking-wider text-primary/40 mb-0.5">Hyper-RAG</p>
+                      <p className="font-display text-base text-primary/90 leading-tight">{stat.system}</p>
+                      <p className="font-body text-[10px] text-muted-foreground/50">{stat.systemDetail}</p>
+                    </div>
                   </div>
                 </motion.div>
               ))}
