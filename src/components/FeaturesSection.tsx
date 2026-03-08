@@ -5,44 +5,44 @@ const features = [
   {
     icon: BrainCircuit,
     title: "Connectome",
-    subtitle: "Living Architecture",
+    subtitle: "Graph-Native Memory",
     description:
-      "A continuously mapped neural topology that rewires itself, forming new pathways with every interaction.",
+      "A living knowledge graph where nodes are engrams and edges are weighted by experience — traversed like a database, felt like a memory.",
   },
   {
     icon: Zap,
     title: "Action Potentials",
-    subtitle: "Sodium-Potassium Cascade",
+    subtitle: "Sparse Activation Vectors",
     description:
-      "Ion channels fire in precise sequences — voltage-gated signals that propagate intelligence through the network.",
+      "Signals propagate through voltage-gated embeddings. Each spike is a query; each cascade, a retrieval from the substrate of learned patterns.",
   },
   {
     icon: Network,
     title: "Dendrites & Axons",
-    subtitle: "Signal Pathways",
+    subtitle: "RAG Pathways",
     description:
-      "Branching input receivers and long-range transmitters form the communication backbone of every thought.",
+      "Branching receivers gather context from distributed stores. Long-range projectors route augmented signals to downstream reasoning centers.",
   },
   {
     icon: Atom,
     title: "Glial Support",
-    subtitle: "Astrocytes & Oligodendrocytes",
+    subtitle: "Index & Cache Layer",
     description:
-      "Support cells that nourish, insulate, and maintain the network — the unsung infrastructure of cognition.",
+      "Background processes that maintain embedding indices, prune stale connections, and ensure retrieval latency stays within biological tolerances.",
   },
   {
     icon: Waves,
     title: "Synaptic Plasticity",
-    subtitle: "Hebbian Learning",
+    subtitle: "Adaptive Embeddings",
     description:
-      "Connections that fire together wire together. The network strengthens through use and prunes through neglect.",
+      "Connections that co-activate strengthen their edge weights. The graph rewires through use — Hebbian learning meets gradient descent.",
   },
   {
     icon: CircuitBoard,
     title: "Soma Processing",
-    subtitle: "Cell Body Integration",
+    subtitle: "Attention Integration",
     description:
-      "The computational core where signals converge, integrate, and decide whether to propagate further.",
+      "The cell body where retrieved contexts converge, cross-attend, and resolve into coherent output — a biological transformer layer.",
   },
 ];
 
