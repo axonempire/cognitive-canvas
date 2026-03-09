@@ -40,6 +40,19 @@ interface PropagatingSpike {
   active: boolean;
 }
 
+interface Vesicle {
+  x: number;
+  y: number;
+  vx: number;
+  vy: number;
+  radius: number;
+  baseAlpha: number;
+  alpha: number;           // current rendered alpha (excited = brighter)
+  pulsePhase: number;
+  pulseSpeed: number;
+  excitement: number;      // 0–1: how much a nearby firing pushed/pulled it
+}
+
 // Layer config: scale, opacity multiplier, blur, parallax factor, count ratio
 const LAYER_CONFIG = [
   { scale: 0.45, opacity: 0.25, blur: 1.5, parallax: 0.15, ratio: 0.25 },  // background - small, dim, blurry
