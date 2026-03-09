@@ -27,8 +27,8 @@ interface NeuronCell {
   refractoryTimer: number;
   stimulation: number;
   stimulationDecay: number;
-  layer: number; // 0=back, 1=mid, 2=front
-  cursorGlow: number; // 0–1 proximity brightness from cursor
+  layer: number;
+  cursorGlow: number;
 }
 
 interface PropagatingSpike {
@@ -76,7 +76,6 @@ interface Vesicle {
   excitement: number;
 }
 
-// Layer config: scale, opacity multiplier, blur, parallax factor, count ratio
 const LAYER_CONFIG = [
   { scale: 0.45, opacity: 0.25, blur: 0, parallax: 0, ratio: 0.25 },
   { scale: 1.0,  opacity: 1.0,  blur: 0, parallax: 0, ratio: 0.55 },
@@ -93,7 +92,7 @@ const NeuralCanvas = () => {
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
-    const ctx = canvas.getContext("2d");
+    const ctx = canvas.getContext("2d", { alpha: false });
     if (!ctx) return;
 
     const resize = () => {
@@ -120,13 +119,15 @@ const NeuralCanvas = () => {
       const imgData = noiseCTX.createImageData(256, 256);
       for (let i = 0; i < imgData.data.length; i += 4) {
         const v = Math.random() * 255;
-        imgData.data[i]   = Math.min(255, v * 1.18); // R — warm amber
-        imgData.data[i+1] = Math.min(255, v * 0.82); // G
-        imgData.data[i+2] = Math.min(255, v * 0.50); // B — cooler
-        imgData.data[i+3] = v * 0.48;                // A
+        imgData.data[i]   = Math.min(255, v * 1.18);
+        imgData.data[i+1] = Math.min(255, v * 0.82);
+        imgData.data[i+2] = Math.min(255, v * 0.50);
+        imgData.data[i+3] = v * 0.48;
       }
       noiseCTX.putImageData(imgData, 0, 0);
     }
+    // Cache the pattern once instead of recreating every frame
+    const cachedNoisePattern = ctx.createPattern(noiseCanvas, "repeat");
     let noiseTime = 0;
 
     const totalCount = Math.min(90, Math.max(40, Math.floor((window.innerWidth * window.innerHeight) / 15000)));
@@ -136,6 +137,7 @@ const NeuralCanvas = () => {
     const FIRE_THRESHOLD  = 0.6;
     const REFRACTORY_PERIOD = 120;
     const SYNAPSE_DIST    = 100;
+    const SYNAPSE_DIST_SQ = SYNAPSE_DIST * SYNAPSE_DIST;
 
     const randRange = (min: number, max: number) => min + Math.random() * (max - min);
 
@@ -158,8 +160,8 @@ const NeuralCanvas = () => {
       });
     }
 
-    // ── Vesicle / particle field ──────────────────────────────────────
-    const VESICLE_COUNT = 340;
+    // ── Vesicle / particle field (reduced count) ─────────────────────
+    const VESICLE_COUNT = 180; // was 340
     const vesicles: Vesicle[] = [];
     for (let i = 0; i < VESICLE_COUNT; i++) {
       vesicles.push({
@@ -247,18 +249,24 @@ const NeuralCanvas = () => {
       }
     }
 
+    // ── Pre-compute mid-layer indices ────────────────────────────────
+    const midIndices: number[] = [];
+    for (let i = 0; i < neurons.length; i++) {
+      if (neurons[i].layer === 1) midIndices.push(i);
+    }
+
     // ── Helpers ───────────────────────────────────────────────────────
     const getAxonTerminals = (n: NeuronCell) => {
       const axAngle = n.axon.angle + n.rotation;
-      const axEnd   = {
-        x: n.x + Math.cos(axAngle) * n.axon.length,
-        y: n.y + Math.sin(axAngle) * n.axon.length,
-      };
+      const cosA = Math.cos(axAngle);
+      const sinA = Math.sin(axAngle);
+      const axEndX = n.x + cosA * n.axon.length;
+      const axEndY = n.y + sinA * n.axon.length;
       return n.axon.terminals.map(t => {
         const tAngle = axAngle + t.angle;
         return {
-          x: axEnd.x + Math.cos(tAngle) * t.length,
-          y: axEnd.y + Math.sin(tAngle) * t.length,
+          x: axEndX + Math.cos(tAngle) * t.length,
+          y: axEndY + Math.sin(tAngle) * t.length,
         };
       });
     };
@@ -268,14 +276,18 @@ const NeuralCanvas = () => {
       for (const d of n.dendrites) {
         const sway  = Math.sin(d.swayPhase) * d.swayAmount;
         const angle = d.angle + n.rotation + sway;
-        const dx    = n.x + Math.cos(angle) * d.length;
-        const dy    = n.y + Math.sin(angle) * d.length;
+        const cosA = Math.cos(angle);
+        const sinA = Math.sin(angle);
+        const dx    = n.x + cosA * d.length;
+        const dy    = n.y + sinA * d.length;
         tips.push({ x: dx, y: dy });
         for (const b of d.branches) {
           const bSway  = Math.sin(b.swayPhase) * b.swayAmount;
           const bAngle = angle + b.angle + bSway;
-          const bx     = dx + Math.cos(bAngle) * b.length;
-          const by     = dy + Math.sin(bAngle) * b.length;
+          const bCos = Math.cos(bAngle);
+          const bSin = Math.sin(bAngle);
+          const bx     = dx + bCos * b.length;
+          const by     = dy + bSin * b.length;
           tips.push({ x: bx, y: by });
           if (b.subBranches) {
             for (const sb of b.subBranches) {
@@ -294,10 +306,12 @@ const NeuralCanvas = () => {
       x1: number, y1: number, angle: number, length: number,
       width: number, alpha: number, fireGlow: number
     ): { x: number; y: number } => {
-      const x2 = x1 + Math.cos(angle) * length;
-      const y2 = y1 + Math.sin(angle) * length;
-      const cx = (x1 + x2) / 2 + Math.sin(angle) * length * 0.08;
-      const cy = (y1 + y2) / 2 - Math.cos(angle) * length * 0.08;
+      const cosA = Math.cos(angle);
+      const sinA = Math.sin(angle);
+      const x2 = x1 + cosA * length;
+      const y2 = y1 + sinA * length;
+      const cx = (x1 + x2) / 2 + sinA * length * 0.08;
+      const cy = (y1 + y2) / 2 - cosA * length * 0.08;
 
       ctx.beginPath();
       ctx.moveTo(x1, y1);
@@ -329,8 +343,111 @@ const NeuralCanvas = () => {
 
     let time = 0;
 
+    // ── Cached synapse connections (recomputed every N frames) ────────
+    interface SynapseConnection {
+      fromIdx: number;
+      toIdx: number;
+      termX: number;
+      termY: number;
+      tipX: number;
+      tipY: number;
+      dist: number;
+    }
+    let cachedSynapses: SynapseConnection[] = [];
+    let synapseUpdateCounter = 0;
+    const SYNAPSE_UPDATE_INTERVAL = 30; // recompute every 30 frames
+
+    const recomputeSynapseConnections = () => {
+      cachedSynapses = [];
+      for (const i of midIndices) {
+        const terminals = getAxonTerminals(neurons[i]);
+        for (const j of midIndices) {
+          if (i === j) continue;
+          // Quick bounding-box pre-check (neurons too far apart)
+          const ndx = neurons[i].x - neurons[j].x;
+          const ndy = neurons[i].y - neurons[j].y;
+          if (ndx * ndx + ndy * ndy > 90000) continue; // 300px max possible reach
+
+          const tips = getDendriteTips(neurons[j]);
+          for (const term of terminals) {
+            for (const tip of tips) {
+              const dx = term.x - tip.x;
+              const dy = term.y - tip.y;
+              const distSq = dx * dx + dy * dy;
+              if (distSq < SYNAPSE_DIST_SQ) {
+                cachedSynapses.push({
+                  fromIdx: i, toIdx: j,
+                  termX: term.x, termY: term.y,
+                  tipX: tip.x, tipY: tip.y,
+                  dist: Math.sqrt(distSq),
+                });
+              }
+            }
+          }
+        }
+      }
+    };
+
+    // ── Offscreen fog canvas (updated less frequently) ───────────────
+    const fogCanvas = document.createElement("canvas");
+    const fogCtx = fogCanvas.getContext("2d");
+    let fogDirty = true;
+    let fogUpdateCounter = 0;
+    const FOG_UPDATE_INTERVAL = 4; // update fog every 4 frames
+
+    const renderFogOffscreen = () => {
+      if (!fogCtx) return;
+      fogCanvas.width = canvas.width;
+      fogCanvas.height = canvas.height;
+      fogCtx.clearRect(0, 0, fogCanvas.width, fogCanvas.height);
+      for (const f of fogPatches) {
+        const r    = f.radius * (1 + f.excitement * 0.25);
+        const grad = fogCtx.createRadialGradient(f.x, f.y, 0, f.x, f.y, r);
+        grad.addColorStop(0,    `hsla(${f.hue}, 75%, 55%, ${f.alpha})`);
+        grad.addColorStop(0.35, `hsla(${f.hue - 5}, 65%, 45%, ${f.alpha * 0.55})`);
+        grad.addColorStop(0.7,  `hsla(${f.hue - 10}, 50%, 35%, ${f.alpha * 0.2})`);
+        grad.addColorStop(1,    `hsla(20, 30%, 20%, 0)`);
+        fogCtx.beginPath();
+        fogCtx.arc(f.x, f.y, r, 0, Math.PI * 2);
+        fogCtx.fillStyle = grad;
+        fogCtx.fill();
+      }
+    };
+
+    // Pre-generate vignette as offscreen canvas (never changes unless resized)
+    let vignetteCanvas = document.createElement("canvas");
+    let vignetteNeedsRender = true;
+    const renderVignette = () => {
+      vignetteCanvas.width = canvas.width;
+      vignetteCanvas.height = canvas.height;
+      const vCtx = vignetteCanvas.getContext("2d");
+      if (!vCtx) return;
+      const vw = canvas.width;
+      const vh = canvas.height;
+      const vignette = vCtx.createRadialGradient(
+        vw / 2, vh / 2, vh * 0.18,
+        vw / 2, vh / 2, vh * 0.85
+      );
+      vignette.addColorStop(0,    "rgba(0,0,0,0)");
+      vignette.addColorStop(0.55, "rgba(0,0,0,0.08)");
+      vignette.addColorStop(0.8,  "rgba(4,2,1,0.38)");
+      vignette.addColorStop(1,    "rgba(6,3,1,0.72)");
+      vCtx.fillStyle = vignette;
+      vCtx.fillRect(0, 0, vw, vh);
+      vignetteNeedsRender = false;
+    };
+
+    const origResize = resize;
+    const resizeWithCaches = () => {
+      origResize();
+      vignetteNeedsRender = true;
+      fogDirty = true;
+    };
+    window.removeEventListener("resize", resize);
+    window.addEventListener("resize", resizeWithCaches);
+
     // ── Draw a single neuron ──────────────────────────────────────────
-    const drawNeuron = (n: NeuronCell, _ni: number, opacityMult: number) => {
+    const drawNeuron = (n: NeuronCell, opacityMult: number) => {
       const pulse     = Math.sin(n.pulsePhase) * 0.5 + 0.5;
       const baseAlpha = (0.2 + pulse * 0.15) * opacityMult;
 
@@ -364,18 +481,16 @@ const NeuralCanvas = () => {
 
       // Axon
       const axAngle = n.axon.angle + n.rotation;
-      const axEnd   = {
-        x: n.x + Math.cos(axAngle) * n.axon.length,
-        y: n.y + Math.sin(axAngle) * n.axon.length,
-      };
-      const axMid = {
-        x: (n.x + axEnd.x) / 2 + Math.sin(axAngle) * n.axon.length * 0.06,
-        y: (n.y + axEnd.y) / 2 - Math.cos(axAngle) * n.axon.length * 0.06,
-      };
+      const cosAx = Math.cos(axAngle);
+      const sinAx = Math.sin(axAngle);
+      const axEndX = n.x + cosAx * n.axon.length;
+      const axEndY = n.y + sinAx * n.axon.length;
+      const axMidX = (n.x + axEndX) / 2 + sinAx * n.axon.length * 0.06;
+      const axMidY = (n.y + axEndY) / 2 - cosAx * n.axon.length * 0.06;
 
       ctx.beginPath();
       ctx.moveTo(n.x, n.y);
-      ctx.quadraticCurveTo(axMid.x, axMid.y, axEnd.x, axEnd.y);
+      ctx.quadraticCurveTo(axMidX, axMidY, axEndX, axEndY);
       if (axonFire > 0) {
         ctx.strokeStyle = `rgba(${200 + 20 * axonFire}, ${165 + 25 * axonFire}, ${120 + 30 * axonFire}, ${baseAlpha * 0.5 + axonFire * 0.25})`;
         ctx.lineWidth   = 1.6 + axonFire * 1;
@@ -389,8 +504,8 @@ const NeuralCanvas = () => {
       // Fire flash along axon
       if (n.firing && n.fireProgress > 0.2 && n.fireProgress < 0.9) {
         const t  = Math.min(1, (n.fireProgress - 0.2) / 0.6);
-        const fx = (1 - t) * (1 - t) * n.x + 2 * (1 - t) * t * axMid.x + t * t * axEnd.x;
-        const fy = (1 - t) * (1 - t) * n.y + 2 * (1 - t) * t * axMid.y + t * t * axEnd.y;
+        const fx = (1 - t) * (1 - t) * n.x + 2 * (1 - t) * t * axMidX + t * t * axEndX;
+        const fy = (1 - t) * (1 - t) * n.y + 2 * (1 - t) * t * axMidY + t * t * axEndY;
         const flashGlow = ctx.createRadialGradient(fx, fy, 0, fx, fy, 10);
         flashGlow.addColorStop(0,   `rgba(230,200,140,${0.4 * opacityMult})`);
         flashGlow.addColorStop(0.4, `rgba(210,175,120,${0.15 * opacityMult})`);
@@ -405,7 +520,7 @@ const NeuralCanvas = () => {
       ctx.setLineDash([6, 5]);
       ctx.beginPath();
       ctx.moveTo(n.x, n.y);
-      ctx.quadraticCurveTo(axMid.x, axMid.y, axEnd.x, axEnd.y);
+      ctx.quadraticCurveTo(axMidX, axMidY, axEndX, axEndY);
       ctx.strokeStyle = `hsla(35, 50%, 45%, ${baseAlpha * 0.15})`;
       ctx.lineWidth   = 3.5;
       ctx.stroke();
@@ -414,11 +529,11 @@ const NeuralCanvas = () => {
       // Axon terminals
       for (const t of n.axon.terminals) {
         const tAngle = axAngle + t.angle;
-        const tx     = axEnd.x + Math.cos(tAngle) * t.length;
-        const ty     = axEnd.y + Math.sin(tAngle) * t.length;
+        const tx     = axEndX + Math.cos(tAngle) * t.length;
+        const ty     = axEndY + Math.sin(tAngle) * t.length;
 
         ctx.beginPath();
-        ctx.moveTo(axEnd.x, axEnd.y);
+        ctx.moveTo(axEndX, axEndY);
         ctx.lineTo(tx, ty);
         const tFire = terminalFire;
         if (tFire > 0) {
@@ -430,7 +545,7 @@ const NeuralCanvas = () => {
         }
         ctx.stroke();
 
-        // Synaptic bouton
+        // Synaptic bouton — simplified: skip gradient when not firing
         ctx.beginPath();
         ctx.arc(tx, ty, 1.8 + tFire * 1.2, 0, Math.PI * 2);
         if (tFire > 0) {
@@ -514,14 +629,21 @@ const NeuralCanvas = () => {
     const animate = () => {
       if (!ctx || !canvas) return;
       time++;
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-      const scrollY = scrollRef.current;
+      // Fill with background color instead of clearRect (alpha:false context)
+      ctx.fillStyle = "#0a0a0a";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
 
       // Spontaneous random firing
       if (time % 40 === 0) {
         const idx = Math.floor(Math.random() * neurons.length);
         if (!neurons[idx].firing && neurons[idx].refractoryTimer <= 0) triggerFire(idx);
+      }
+
+      // ── Collect firing neuron indices once per frame ───────────────
+      const firingIndices: number[] = [];
+      for (let i = 0; i < neurons.length; i++) {
+        if (neurons[i].firing) firingIndices.push(i);
       }
 
       // ── Update all neurons (physics + firing) ─────────────────────
@@ -560,24 +682,31 @@ const NeuralCanvas = () => {
               const terminals = getAxonTerminals(n);
               for (let j = 0; j < neurons.length; j++) {
                 if (j === i || neurons[j].layer !== 1) continue;
+                // Quick distance pre-check
+                const ndx = n.x - neurons[j].x;
+                const ndy = n.y - neurons[j].y;
+                if (ndx * ndx + ndy * ndy > 90000) continue;
+
                 const tips = getDendriteTips(neurons[j]);
                 let connected = false;
                 for (const term of terminals) {
+                  if (connected) break;
                   for (const tip of tips) {
                     const dx = term.x - tip.x;
                     const dy = term.y - tip.y;
-                    if (Math.sqrt(dx * dx + dy * dy) < SYNAPSE_DIST && !connected) {
+                    if (dx * dx + dy * dy < SYNAPSE_DIST_SQ) {
                       synapticSpikes.push({
                         fromNeuronIdx: i,
                         toNeuronIdx:   j,
-                        fromPoint:     { ...term },
-                        toPoint:       { ...tip },
+                        fromPoint:     { x: term.x, y: term.y },
+                        toPoint:       { x: tip.x, y: tip.y },
                         progress:      0,
                         speed:         0.02 + Math.random() * 0.015,
                         active:        true,
                         trailPoints:   [],
                       });
                       connected = true;
+                      break;
                     }
                   }
                 }
@@ -621,11 +750,11 @@ const NeuralCanvas = () => {
       }
 
       // ── Update synaptic spikes + record trail breadcrumbs ─────────
-      for (const spike of synapticSpikes) {
-        if (!spike.active) continue;
+      for (let si = synapticSpikes.length - 1; si >= 0; si--) {
+        const spike = synapticSpikes[si];
+        if (!spike.active) { synapticSpikes.splice(si, 1); continue; }
         spike.progress += spike.speed;
 
-        // Sample current bezier position for the ink trail
         const { fromPoint: fp, toPoint: tp } = spike;
         const tdx   = tp.x - fp.x;
         const tdy   = tp.y - fp.y;
@@ -645,10 +774,9 @@ const NeuralCanvas = () => {
           const target = neurons[spike.toNeuronIdx];
           if (target) target.stimulation += 0.25 + Math.random() * 0.15;
 
-          // Spawn fading bioluminescent ink trail
           if (spike.trailPoints.length >= 3) {
             synapticTrails.push({
-              points:    [...spike.trailPoints],
+              points:    spike.trailPoints, // no need to copy, spike is discarded
               alpha:     0.75,
               fadeSpeed: 0.006 + Math.random() * 0.008,
               hue:       30 + Math.random() * 20,
@@ -657,16 +785,12 @@ const NeuralCanvas = () => {
         }
       }
 
-      if (time % 80 === 0) {
-        const active = synapticSpikes.filter(s => s.active);
-        synapticSpikes.length = 0;
-        synapticSpikes.push(...active);
-        // Guard trail pool size
-        while (synapticTrails.length > 80) synapticTrails.shift();
-      }
+      // Guard trail pool size
+      while (synapticTrails.length > 50) synapticTrails.shift();
 
-      // ── Update vesicles ───────────────────────────────────────────
+      // ── Update vesicles (only interact with firing neurons) ────────
       const VESICLE_INFLUENCE_RADIUS = 90;
+      const VESICLE_INF_SQ = VESICLE_INFLUENCE_RADIUS * VESICLE_INFLUENCE_RADIUS;
       const PUSH_STRENGTH = 0.28;
       const PULL_STRENGTH = 0.12;
 
@@ -674,24 +798,20 @@ const NeuralCanvas = () => {
         v.pulsePhase += v.pulseSpeed;
         if (v.excitement > 0) v.excitement *= 0.96;
 
-        for (const n of neurons) {
-          if (!n.firing) continue;
+        // Only check firing neurons instead of all neurons
+        for (const fi of firingIndices) {
+          const n = neurons[fi];
           const dx     = v.x - n.x;
           const dy     = v.y - n.y;
           const distSq = dx * dx + dy * dy;
-          if (distSq < VESICLE_INFLUENCE_RADIUS * VESICLE_INFLUENCE_RADIUS) {
+          if (distSq < VESICLE_INF_SQ) {
             const dist = Math.sqrt(distSq);
             const norm = dist > 0.001 ? 1 / dist : 0;
             const t    = n.fireProgress;
-            if (t < 0.5) {
-              const strength = PULL_STRENGTH * (1 - distSq / (VESICLE_INFLUENCE_RADIUS * VESICLE_INFLUENCE_RADIUS));
-              v.vx -= dx * norm * strength;
-              v.vy -= dy * norm * strength;
-            } else {
-              const strength = PUSH_STRENGTH * (1 - distSq / (VESICLE_INFLUENCE_RADIUS * VESICLE_INFLUENCE_RADIUS));
-              v.vx += dx * norm * strength;
-              v.vy += dy * norm * strength;
-            }
+            const strength = (t < 0.5 ? PULL_STRENGTH : PUSH_STRENGTH) * (1 - distSq / VESICLE_INF_SQ);
+            const sign = t < 0.5 ? -1 : 1;
+            v.vx += sign * dx * norm * strength;
+            v.vy += sign * dy * norm * strength;
             v.excitement = Math.min(1, v.excitement + 0.35);
           }
         }
@@ -713,18 +833,20 @@ const NeuralCanvas = () => {
         v.alpha = v.baseAlpha * pulse * (1 + v.excitement * 2.5);
       }
 
-      // ── Update fog patches ────────────────────────────────────────
+      // ── Update fog patches (only check firing neurons) ────────────
       const FOG_INFLUENCE_RADIUS = 220;
+      const FOG_INF_SQ = FOG_INFLUENCE_RADIUS * FOG_INFLUENCE_RADIUS;
       for (const f of fogPatches) {
         f.phase += f.phaseSpeed;
         if (f.excitement > 0) f.excitement *= 0.992;
 
-        for (const n of neurons) {
-          if (!n.firing || n.layer !== 1) continue;
+        for (const fi of firingIndices) {
+          const n = neurons[fi];
+          if (n.layer !== 1) continue;
           const dx     = f.x - n.x;
           const dy     = f.y - n.y;
           const distSq = dx * dx + dy * dy;
-          if (distSq < FOG_INFLUENCE_RADIUS * FOG_INFLUENCE_RADIUS) {
+          if (distSq < FOG_INF_SQ) {
             f.excitement = Math.min(1, f.excitement + 0.08);
             const dist   = Math.sqrt(distSq) + 0.001;
             f.vx -= (dx / dist) * 0.018;
@@ -747,29 +869,30 @@ const NeuralCanvas = () => {
         f.alpha = f.baseAlpha * breathe * (1 + f.excitement * 1.8);
       }
 
+      // ── Recompute synapse connections periodically ─────────────────
+      synapseUpdateCounter++;
+      if (synapseUpdateCounter >= SYNAPSE_UPDATE_INTERVAL) {
+        synapseUpdateCounter = 0;
+        recomputeSynapseConnections();
+      }
+
       // ═══════════════ RENDER LAYERS ════════════════════════════════
       for (let layerIdx = 0; layerIdx < 3; layerIdx++) {
-        const cfg            = LAYER_CONFIG[layerIdx];
-        const parallaxOffset = scrollY * cfg.parallax;
+        const cfg = LAYER_CONFIG[layerIdx];
 
-        ctx.save();
-        ctx.translate(0, parallaxOffset);
-        if (cfg.blur > 0) ctx.filter = `blur(${cfg.blur}px)`;
-
-        // ── Vesicles behind background layer ──
+        // ── Vesicles behind background layer (no blur filter) ──
         if (layerIdx === 0) {
-          ctx.save();
-          ctx.filter = "blur(0.6px)";
           for (const v of vesicles) {
             const r       = v.radius + v.excitement * 1.2;
             const excited = v.excitement > 0.05;
             if (excited) {
-              const halo = ctx.createRadialGradient(v.x, v.y, 0, v.x, v.y, r * 5);
+              const haloR = r * 5;
+              const halo = ctx.createRadialGradient(v.x, v.y, 0, v.x, v.y, haloR);
               halo.addColorStop(0,   `hsla(38, 85%, 68%, ${v.alpha * 0.6})`);
               halo.addColorStop(0.5, `hsla(32, 70%, 55%, ${v.alpha * 0.2})`);
               halo.addColorStop(1,   `hsla(28, 60%, 45%, 0)`);
               ctx.beginPath();
-              ctx.arc(v.x, v.y, r * 5, 0, Math.PI * 2);
+              ctx.arc(v.x, v.y, haloR, 0, Math.PI * 2);
               ctx.fillStyle = halo;
               ctx.fill();
             }
@@ -781,41 +904,25 @@ const NeuralCanvas = () => {
             ctx.fillStyle = coreColor;
             ctx.fill();
           }
-          ctx.restore();
         }
 
-        // ── Mid-layer: connections + spikes + trails ──────────────
+        // ── Mid-layer: cached connections + spikes + trails ──────
         if (layerIdx === 1) {
-          const midIndices = neurons.reduce<number[]>((acc, n, i) => { if (n.layer === 1) acc.push(i); return acc; }, []);
-
-          // Synaptic connection lines
-          for (const i of midIndices) {
-            const terminals = getAxonTerminals(neurons[i]);
-            for (const j of midIndices) {
-              if (i === j) continue;
-              const tips = getDendriteTips(neurons[j]);
-              for (const term of terminals) {
-                for (const tip of tips) {
-                  const dx   = term.x - tip.x;
-                  const dy   = term.y - tip.y;
-                  const dist = Math.sqrt(dx * dx + dy * dy);
-                  if (dist < SYNAPSE_DIST) {
-                    const alpha = (1 - dist / SYNAPSE_DIST) * 0.06;
-                    ctx.beginPath();
-                    ctx.moveTo(term.x, term.y);
-                    const mx = (term.x + tip.x) / 2;
-                    const my = (term.y + tip.y) / 2 - dist * 0.12;
-                    ctx.quadraticCurveTo(mx, my, tip.x, tip.y);
-                    ctx.strokeStyle = `hsla(35, 40%, 45%, ${alpha})`;
-                    ctx.lineWidth   = 0.5;
-                    ctx.setLineDash([2, 3]);
-                    ctx.stroke();
-                    ctx.setLineDash([]);
-                  }
-                }
-              }
-            }
+          // Synaptic connection lines from cache
+          ctx.setLineDash([2, 3]);
+          ctx.lineWidth = 0.5;
+          ctx.lineCap = "round";
+          for (const conn of cachedSynapses) {
+            const alpha = (1 - conn.dist / SYNAPSE_DIST) * 0.06;
+            ctx.beginPath();
+            ctx.moveTo(conn.termX, conn.termY);
+            const mx = (conn.termX + conn.tipX) / 2;
+            const my = (conn.termY + conn.tipY) / 2 - conn.dist * 0.12;
+            ctx.quadraticCurveTo(mx, my, conn.tipX, conn.tipY);
+            ctx.strokeStyle = `hsla(35, 40%, 45%, ${alpha})`;
+            ctx.stroke();
           }
+          ctx.setLineDash([]);
 
           // Live spike balls
           for (const spike of synapticSpikes) {
@@ -852,7 +959,7 @@ const NeuralCanvas = () => {
             ctx.fill();
           }
 
-          // ── Bioluminescent ink trails (fading synaptic history) ──
+          // ── Bioluminescent ink trails (2 passes instead of 3) ──
           ctx.save();
           ctx.lineCap  = "round";
           ctx.lineJoin = "round";
@@ -865,20 +972,12 @@ const NeuralCanvas = () => {
             }
             const pts = trail.points;
 
-            // Wide soft aura
+            // Combined soft glow (merged wide aura + mid)
             ctx.beginPath();
             ctx.moveTo(pts[0].x, pts[0].y);
             for (let pi = 1; pi < pts.length; pi++) ctx.lineTo(pts[pi].x, pts[pi].y);
-            ctx.strokeStyle = `hsla(${trail.hue}, 85%, 68%, ${trail.alpha * 0.10})`;
-            ctx.lineWidth   = 12;
-            ctx.stroke();
-
-            // Mid glow
-            ctx.beginPath();
-            ctx.moveTo(pts[0].x, pts[0].y);
-            for (let pi = 1; pi < pts.length; pi++) ctx.lineTo(pts[pi].x, pts[pi].y);
-            ctx.strokeStyle = `hsla(${trail.hue}, 90%, 74%, ${trail.alpha * 0.26})`;
-            ctx.lineWidth   = 4;
+            ctx.strokeStyle = `hsla(${trail.hue}, 88%, 70%, ${trail.alpha * 0.18})`;
+            ctx.lineWidth   = 8;
             ctx.stroke();
 
             // Core luminous thread
@@ -895,56 +994,33 @@ const NeuralCanvas = () => {
         // Draw neurons for this layer
         for (let ni = 0; ni < neurons.length; ni++) {
           if (neurons[ni].layer !== layerIdx) continue;
-          drawNeuron(neurons[ni], ni, cfg.opacity);
+          drawNeuron(neurons[ni], cfg.opacity);
         }
-
-        ctx.restore();
       }
 
-      // ── Fog patches (blurred, screen-space) ───────────────────────
-      ctx.save();
-      ctx.filter = "blur(28px)";
-      for (const f of fogPatches) {
-        const r    = f.radius * (1 + f.excitement * 0.25);
-        const grad = ctx.createRadialGradient(f.x, f.y, 0, f.x, f.y, r);
-        grad.addColorStop(0,    `hsla(${f.hue}, 75%, 55%, ${f.alpha})`);
-        grad.addColorStop(0.35, `hsla(${f.hue - 5}, 65%, 45%, ${f.alpha * 0.55})`);
-        grad.addColorStop(0.7,  `hsla(${f.hue - 10}, 50%, 35%, ${f.alpha * 0.2})`);
-        grad.addColorStop(1,    `hsla(20, 30%, 20%, 0)`);
-        ctx.beginPath();
-        ctx.arc(f.x, f.y, r, 0, Math.PI * 2);
-        ctx.fillStyle = grad;
-        ctx.fill();
+      // ── Fog patches (rendered to offscreen canvas, no blur filter) ─
+      fogUpdateCounter++;
+      if (fogUpdateCounter >= FOG_UPDATE_INTERVAL || fogDirty) {
+        fogUpdateCounter = 0;
+        fogDirty = false;
+        renderFogOffscreen();
       }
-      ctx.restore();
+      ctx.drawImage(fogCanvas, 0, 0);
 
-      // ── Dark vignette — peering-through-tissue lens effect ────────
-      ctx.save();
-      const vw      = canvas.width;
-      const vh      = canvas.height;
-      const vignette = ctx.createRadialGradient(
-        vw / 2, vh / 2, vh * 0.18,
-        vw / 2, vh / 2, vh * 0.85
-      );
-      vignette.addColorStop(0,    "rgba(0,0,0,0)");
-      vignette.addColorStop(0.55, "rgba(0,0,0,0.08)");
-      vignette.addColorStop(0.8,  "rgba(4,2,1,0.38)");
-      vignette.addColorStop(1,    "rgba(6,3,1,0.72)");
-      ctx.fillStyle = vignette;
-      ctx.fillRect(0, 0, vw, vh);
-      ctx.restore();
+      // ── Vignette (cached offscreen) ────────────────────────────────
+      if (vignetteNeedsRender) renderVignette();
+      ctx.drawImage(vignetteCanvas, 0, 0);
 
-      // ── Organic noise texture overlay (biological grain warmth) ───
+      // ── Organic noise texture overlay ──────────────────────────────
       noiseTime += 0.35;
       ctx.save();
       ctx.globalAlpha              = 0.030;
       ctx.globalCompositeOperation = "screen";
-      const noisePat = ctx.createPattern(noiseCanvas, "repeat");
-      if (noisePat) {
+      if (cachedNoisePattern) {
         const nx = Math.floor(noiseTime % 256);
-        const ny = Math.floor((noiseTime * 0.61803) % 256); // golden-ratio drift
+        const ny = Math.floor((noiseTime * 0.61803) % 256);
         ctx.translate(nx, ny);
-        ctx.fillStyle = noisePat;
+        ctx.fillStyle = cachedNoisePattern;
         ctx.fillRect(-nx, -ny, canvas.width + 256, canvas.height + 256);
       }
       ctx.restore();
@@ -955,7 +1031,7 @@ const NeuralCanvas = () => {
     animate();
 
     return () => {
-      window.removeEventListener("resize",    resize);
+      window.removeEventListener("resize", resizeWithCaches);
       window.removeEventListener("scroll",    onScroll);
       window.removeEventListener("mousemove", onMouseMove);
       window.removeEventListener("click",     onClick);
