@@ -40,6 +40,20 @@ interface PropagatingSpike {
   active: boolean;
 }
 
+interface FogPatch {
+  x: number;
+  y: number;
+  vx: number;
+  vy: number;
+  radius: number;
+  baseAlpha: number;
+  alpha: number;
+  phase: number;
+  phaseSpeed: number;
+  excitement: number; // swells when a nearby neuron fires
+  hue: number;        // 25–45 for warm amber variation
+}
+
 interface Vesicle {
   x: number;
   y: number;
@@ -89,6 +103,25 @@ const NeuralCanvas = () => {
     const SYNAPSE_DIST = 100;
 
     const randRange = (min: number, max: number) => min + Math.random() * (max - min);
+
+    // ── Fog patch field ──────────────────────────────────────────────
+    const FOG_COUNT = 14;
+    const fogPatches: FogPatch[] = [];
+    for (let i = 0; i < FOG_COUNT; i++) {
+      fogPatches.push({
+        x: Math.random() * canvas.width,
+        y: Math.random() * canvas.height,
+        vx: randRange(-0.06, 0.06),
+        vy: randRange(-0.04, 0.04),
+        radius: randRange(120, 340),
+        baseAlpha: randRange(0.022, 0.055),
+        alpha: 0,
+        phase: Math.random() * Math.PI * 2,
+        phaseSpeed: randRange(0.002, 0.006),
+        excitement: 0,
+        hue: randRange(25, 45),
+      });
+    }
 
     // ── Vesicle / particle field ──────────────────────────────────────
     const VESICLE_COUNT = 340;
@@ -581,6 +614,44 @@ const NeuralCanvas = () => {
         v.alpha = v.baseAlpha * pulse * (1 + v.excitement * 2.5);
       }
 
+      // ── Update fog patches ────────────────────────────────────────
+      const FOG_INFLUENCE_RADIUS = 220;
+      for (const f of fogPatches) {
+        f.phase += f.phaseSpeed;
+        if (f.excitement > 0) f.excitement *= 0.992;
+
+        // Swell near firing neurons
+        for (const n of neurons) {
+          if (!n.firing || n.layer !== 1) continue;
+          const dx = f.x - n.x;
+          const dy = f.y - n.y;
+          const distSq = dx * dx + dy * dy;
+          if (distSq < FOG_INFLUENCE_RADIUS * FOG_INFLUENCE_RADIUS) {
+            f.excitement = Math.min(1, f.excitement + 0.08);
+            // Drift toward the firing neuron slowly
+            const dist = Math.sqrt(distSq) + 0.001;
+            f.vx -= (dx / dist) * 0.018;
+            f.vy -= (dy / dist) * 0.018;
+          }
+        }
+
+        f.x += f.vx;
+        f.y += f.vy;
+        f.vx *= 0.998;
+        f.vy *= 0.998;
+        // Tiny brownian drift
+        f.vx += randRange(-0.008, 0.008);
+        f.vy += randRange(-0.005, 0.005);
+        // Soft wrap
+        if (f.x < -f.radius) f.x = canvas.width + f.radius;
+        if (f.x > canvas.width + f.radius) f.x = -f.radius;
+        if (f.y < -f.radius) f.y = canvas.height + f.radius;
+        if (f.y > canvas.height + f.radius) f.y = -f.radius;
+
+        const breathe = Math.sin(f.phase) * 0.3 + 0.7;
+        f.alpha = f.baseAlpha * breathe * (1 + f.excitement * 1.8);
+      }
+
       // === RENDER LAYERS ===
       // Layer 0: Background (blurred, parallax up)
       // Layer 1: Mid (normal, no parallax)
@@ -703,6 +774,39 @@ const NeuralCanvas = () => {
 
         ctx.restore();
       }
+
+      // ── Render fog patches (screen-space overlay, behind vignette) ─
+      ctx.save();
+      ctx.filter = "blur(28px)";
+      for (const f of fogPatches) {
+        const r = f.radius * (1 + f.excitement * 0.25);
+        const grad = ctx.createRadialGradient(f.x, f.y, 0, f.x, f.y, r);
+        grad.addColorStop(0,   `hsla(${f.hue}, 75%, 55%, ${f.alpha})`);
+        grad.addColorStop(0.35, `hsla(${f.hue - 5}, 65%, 45%, ${f.alpha * 0.55})`);
+        grad.addColorStop(0.7,  `hsla(${f.hue - 10}, 50%, 35%, ${f.alpha * 0.2})`);
+        grad.addColorStop(1,    `hsla(20, 30%, 20%, 0)`);
+        ctx.beginPath();
+        ctx.arc(f.x, f.y, r, 0, Math.PI * 2);
+        ctx.fillStyle = grad;
+        ctx.fill();
+      }
+      ctx.restore();
+
+      // ── Dark vignette — peering-through-tissue lens effect ───────
+      ctx.save();
+      const vw = canvas.width;
+      const vh = canvas.height;
+      const vignette = ctx.createRadialGradient(
+        vw / 2, vh / 2, vh * 0.18,
+        vw / 2, vh / 2, vh * 0.85
+      );
+      vignette.addColorStop(0, "rgba(0,0,0,0)");
+      vignette.addColorStop(0.55, "rgba(0,0,0,0.08)");
+      vignette.addColorStop(0.8,  "rgba(4,2,1,0.38)");
+      vignette.addColorStop(1,    "rgba(6,3,1,0.72)");
+      ctx.fillStyle = vignette;
+      ctx.fillRect(0, 0, vw, vh);
+      ctx.restore();
 
       animationRef.current = requestAnimationFrame(animate);
     };
