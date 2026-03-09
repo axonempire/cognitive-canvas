@@ -40,6 +40,20 @@ interface PropagatingSpike {
   active: boolean;
 }
 
+interface FogPatch {
+  x: number;
+  y: number;
+  vx: number;
+  vy: number;
+  radius: number;
+  baseAlpha: number;
+  alpha: number;
+  phase: number;
+  phaseSpeed: number;
+  excitement: number; // swells when a nearby neuron fires
+  hue: number;        // 25–45 for warm amber variation
+}
+
 interface Vesicle {
   x: number;
   y: number;
