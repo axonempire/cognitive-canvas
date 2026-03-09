@@ -71,7 +71,7 @@ const NeuralCanvas = () => {
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
-    const resize = () => {
+  const resize = () => {
       canvas.width = window.innerWidth;
       canvas.height = window.innerHeight;
     };
@@ -89,6 +89,24 @@ const NeuralCanvas = () => {
     const SYNAPSE_DIST = 100;
 
     const randRange = (min: number, max: number) => min + Math.random() * (max - min);
+
+    // ── Vesicle / particle field ──────────────────────────────────────
+    const VESICLE_COUNT = 340;
+    const vesicles: Vesicle[] = [];
+    for (let i = 0; i < VESICLE_COUNT; i++) {
+      vesicles.push({
+        x: Math.random() * canvas.width,
+        y: Math.random() * canvas.height,
+        vx: randRange(-0.12, 0.12),
+        vy: randRange(-0.12, 0.12),
+        radius: randRange(0.8, 2.2),
+        baseAlpha: randRange(0.04, 0.14),
+        alpha: 0,
+        pulsePhase: Math.random() * Math.PI * 2,
+        pulseSpeed: randRange(0.008, 0.022),
+        excitement: 0,
+      });
+    }
 
     // Create neurons distributed across layers
     for (let layerIdx = 0; layerIdx < 3; layerIdx++) {
