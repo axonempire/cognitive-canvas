@@ -40,6 +40,19 @@ interface PropagatingSpike {
   active: boolean;
 }
 
+interface Vesicle {
+  x: number;
+  y: number;
+  vx: number;
+  vy: number;
+  radius: number;
+  baseAlpha: number;
+  alpha: number;           // current rendered alpha (excited = brighter)
+  pulsePhase: number;
+  pulseSpeed: number;
+  excitement: number;      // 0–1: how much a nearby firing pushed/pulled it
+}
+
 // Layer config: scale, opacity multiplier, blur, parallax factor, count ratio
 const LAYER_CONFIG = [
   { scale: 0.45, opacity: 0.25, blur: 1.5, parallax: 0.15, ratio: 0.25 },  // background - small, dim, blurry
@@ -58,7 +71,7 @@ const NeuralCanvas = () => {
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
-    const resize = () => {
+  const resize = () => {
       canvas.width = window.innerWidth;
       canvas.height = window.innerHeight;
     };
@@ -76,6 +89,24 @@ const NeuralCanvas = () => {
     const SYNAPSE_DIST = 100;
 
     const randRange = (min: number, max: number) => min + Math.random() * (max - min);
+
+    // ── Vesicle / particle field ──────────────────────────────────────
+    const VESICLE_COUNT = 340;
+    const vesicles: Vesicle[] = [];
+    for (let i = 0; i < VESICLE_COUNT; i++) {
+      vesicles.push({
+        x: Math.random() * canvas.width,
+        y: Math.random() * canvas.height,
+        vx: randRange(-0.12, 0.12),
+        vy: randRange(-0.12, 0.12),
+        radius: randRange(0.8, 2.2),
+        baseAlpha: randRange(0.04, 0.14),
+        alpha: 0,
+        pulsePhase: Math.random() * Math.PI * 2,
+        pulseSpeed: randRange(0.008, 0.022),
+        excitement: 0,
+      });
+    }
 
     // Create neurons distributed across layers
     for (let layerIdx = 0; layerIdx < 3; layerIdx++) {
@@ -487,6 +518,69 @@ const NeuralCanvas = () => {
         synapticSpikes.push(...active);
       }
 
+      // ── Update vesicles ───────────────────────────────────────────
+      const VESICLE_INFLUENCE_RADIUS = 90;
+      const PUSH_STRENGTH = 0.28;
+      const PULL_STRENGTH = 0.12;
+
+      for (const v of vesicles) {
+        v.pulsePhase += v.pulseSpeed;
+        if (v.excitement > 0) v.excitement *= 0.96;
+
+        // React to firing neurons
+        for (const n of neurons) {
+          if (!n.firing) continue;
+          const dx = v.x - n.x;
+          const dy = v.y - n.y;
+          const distSq = dx * dx + dy * dy;
+          if (distSq < VESICLE_INFLUENCE_RADIUS * VESICLE_INFLUENCE_RADIUS) {
+            const dist = Math.sqrt(distSq);
+            const norm = dist > 0.001 ? 1 / dist : 0;
+            const t = n.fireProgress; // 0–1.3
+
+            if (t < 0.5) {
+              // Early firing: draw vesicles toward soma (suction / depolarisation)
+              const strength = PULL_STRENGTH * (1 - distSq / (VESICLE_INFLUENCE_RADIUS * VESICLE_INFLUENCE_RADIUS));
+              v.vx -= dx * norm * strength;
+              v.vy -= dy * norm * strength;
+            } else {
+              // Late firing: blast vesicles outward (exocytosis wave)
+              const strength = PUSH_STRENGTH * (1 - distSq / (VESICLE_INFLUENCE_RADIUS * VESICLE_INFLUENCE_RADIUS));
+              v.vx += dx * norm * strength;
+              v.vy += dy * norm * strength;
+            }
+            v.excitement = Math.min(1, v.excitement + 0.35);
+          }
+        }
+
+        // Passive drift
+        v.x += v.vx;
+        v.y += v.vy;
+
+        // Soft velocity cap + drag
+        const speed = Math.sqrt(v.vx * v.vx + v.vy * v.vy);
+        if (speed > 1.6) {
+          v.vx = (v.vx / speed) * 1.6;
+          v.vy = (v.vy / speed) * 1.6;
+        }
+        v.vx *= 0.985;
+        v.vy *= 0.985;
+
+        // Tiny brownian nudge to keep things lively
+        v.vx += randRange(-0.015, 0.015);
+        v.vy += randRange(-0.015, 0.015);
+
+        // Wrap around canvas edges
+        if (v.x < -10) v.x = canvas.width + 10;
+        if (v.x > canvas.width + 10) v.x = -10;
+        if (v.y < -10) v.y = canvas.height + 10;
+        if (v.y > canvas.height + 10) v.y = -10;
+
+        // Compute current alpha (pulse + excitement boost)
+        const pulse = Math.sin(v.pulsePhase) * 0.35 + 0.65;
+        v.alpha = v.baseAlpha * pulse * (1 + v.excitement * 2.5);
+      }
+
       // === RENDER LAYERS ===
       // Layer 0: Background (blurred, parallax up)
       // Layer 1: Mid (normal, no parallax)
@@ -497,18 +591,44 @@ const NeuralCanvas = () => {
         const parallaxOffset = scrollY * cfg.parallax;
 
         ctx.save();
-
-        // Apply parallax translation
         ctx.translate(0, parallaxOffset);
+        if (cfg.blur > 0) ctx.filter = `blur(${cfg.blur}px)`;
 
-        // Apply blur for non-mid layers
-        if (cfg.blur > 0) {
-          ctx.filter = `blur(${cfg.blur}px)`;
+        // ── Draw vesicles behind background layer (before layer 0) ──
+        if (layerIdx === 0) {
+          ctx.save();
+          ctx.filter = "blur(0.6px)";
+          for (const v of vesicles) {
+            const r = v.radius + v.excitement * 1.2;
+            const excited = v.excitement > 0.05;
+
+            if (excited) {
+              // Glowing halo on excited vesicles
+              const halo = ctx.createRadialGradient(v.x, v.y, 0, v.x, v.y, r * 5);
+              halo.addColorStop(0, `hsla(38, 85%, 68%, ${v.alpha * 0.6})`);
+              halo.addColorStop(0.5, `hsla(32, 70%, 55%, ${v.alpha * 0.2})`);
+              halo.addColorStop(1, `hsla(28, 60%, 45%, 0)`);
+              ctx.beginPath();
+              ctx.arc(v.x, v.y, r * 5, 0, Math.PI * 2);
+              ctx.fillStyle = halo;
+              ctx.fill();
+            }
+
+            // Core dot — resting: cool blue-grey tint; excited: warm amber
+            const coreColor = excited
+              ? `hsla(38, 80%, 70%, ${v.alpha})`
+              : `hsla(200, 30%, 70%, ${v.alpha * 0.7})`;
+
+            ctx.beginPath();
+            ctx.arc(v.x, v.y, r, 0, Math.PI * 2);
+            ctx.fillStyle = coreColor;
+            ctx.fill();
+          }
+          ctx.restore();
         }
 
         // Draw synaptic connections only for mid layer
         if (layerIdx === 1) {
-          const midNeurons = neurons.filter(n => n.layer === 1);
           const midIndices = neurons.reduce<number[]>((acc, n, i) => { if (n.layer === 1) acc.push(i); return acc; }, []);
 
           for (const i of midIndices) {
