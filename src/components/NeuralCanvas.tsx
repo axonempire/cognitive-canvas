@@ -104,6 +104,25 @@ const NeuralCanvas = () => {
 
     const randRange = (min: number, max: number) => min + Math.random() * (max - min);
 
+    // ── Fog patch field ──────────────────────────────────────────────
+    const FOG_COUNT = 14;
+    const fogPatches: FogPatch[] = [];
+    for (let i = 0; i < FOG_COUNT; i++) {
+      fogPatches.push({
+        x: Math.random() * canvas.width,
+        y: Math.random() * canvas.height,
+        vx: randRange(-0.06, 0.06),
+        vy: randRange(-0.04, 0.04),
+        radius: randRange(120, 340),
+        baseAlpha: randRange(0.022, 0.055),
+        alpha: 0,
+        phase: Math.random() * Math.PI * 2,
+        phaseSpeed: randRange(0.002, 0.006),
+        excitement: 0,
+        hue: randRange(25, 45),
+      });
+    }
+
     // ── Vesicle / particle field ──────────────────────────────────────
     const VESICLE_COUNT = 340;
     const vesicles: Vesicle[] = [];
