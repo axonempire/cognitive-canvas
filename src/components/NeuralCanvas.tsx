@@ -614,6 +614,44 @@ const NeuralCanvas = () => {
         v.alpha = v.baseAlpha * pulse * (1 + v.excitement * 2.5);
       }
 
+      // ── Update fog patches ────────────────────────────────────────
+      const FOG_INFLUENCE_RADIUS = 220;
+      for (const f of fogPatches) {
+        f.phase += f.phaseSpeed;
+        if (f.excitement > 0) f.excitement *= 0.992;
+
+        // Swell near firing neurons
+        for (const n of neurons) {
+          if (!n.firing || n.layer !== 1) continue;
+          const dx = f.x - n.x;
+          const dy = f.y - n.y;
+          const distSq = dx * dx + dy * dy;
+          if (distSq < FOG_INFLUENCE_RADIUS * FOG_INFLUENCE_RADIUS) {
+            f.excitement = Math.min(1, f.excitement + 0.08);
+            // Drift toward the firing neuron slowly
+            const dist = Math.sqrt(distSq) + 0.001;
+            f.vx -= (dx / dist) * 0.018;
+            f.vy -= (dy / dist) * 0.018;
+          }
+        }
+
+        f.x += f.vx;
+        f.y += f.vy;
+        f.vx *= 0.998;
+        f.vy *= 0.998;
+        // Tiny brownian drift
+        f.vx += randRange(-0.008, 0.008);
+        f.vy += randRange(-0.005, 0.005);
+        // Soft wrap
+        if (f.x < -f.radius) f.x = canvas.width + f.radius;
+        if (f.x > canvas.width + f.radius) f.x = -f.radius;
+        if (f.y < -f.radius) f.y = canvas.height + f.radius;
+        if (f.y > canvas.height + f.radius) f.y = -f.radius;
+
+        const breathe = Math.sin(f.phase) * 0.3 + 0.7;
+        f.alpha = f.baseAlpha * breathe * (1 + f.excitement * 1.8);
+      }
+
       // === RENDER LAYERS ===
       // Layer 0: Background (blurred, parallax up)
       // Layer 1: Mid (normal, no parallax)
