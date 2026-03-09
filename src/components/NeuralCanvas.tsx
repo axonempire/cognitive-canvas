@@ -775,6 +775,39 @@ const NeuralCanvas = () => {
         ctx.restore();
       }
 
+      // ── Render fog patches (screen-space overlay, behind vignette) ─
+      ctx.save();
+      ctx.filter = "blur(28px)";
+      for (const f of fogPatches) {
+        const r = f.radius * (1 + f.excitement * 0.25);
+        const grad = ctx.createRadialGradient(f.x, f.y, 0, f.x, f.y, r);
+        grad.addColorStop(0,   `hsla(${f.hue}, 75%, 55%, ${f.alpha})`);
+        grad.addColorStop(0.35, `hsla(${f.hue - 5}, 65%, 45%, ${f.alpha * 0.55})`);
+        grad.addColorStop(0.7,  `hsla(${f.hue - 10}, 50%, 35%, ${f.alpha * 0.2})`);
+        grad.addColorStop(1,    `hsla(20, 30%, 20%, 0)`);
+        ctx.beginPath();
+        ctx.arc(f.x, f.y, r, 0, Math.PI * 2);
+        ctx.fillStyle = grad;
+        ctx.fill();
+      }
+      ctx.restore();
+
+      // ── Dark vignette — peering-through-tissue lens effect ───────
+      ctx.save();
+      const vw = canvas.width;
+      const vh = canvas.height;
+      const vignette = ctx.createRadialGradient(
+        vw / 2, vh / 2, vh * 0.18,
+        vw / 2, vh / 2, vh * 0.85
+      );
+      vignette.addColorStop(0, "rgba(0,0,0,0)");
+      vignette.addColorStop(0.55, "rgba(0,0,0,0.08)");
+      vignette.addColorStop(0.8,  "rgba(4,2,1,0.38)");
+      vignette.addColorStop(1,    "rgba(6,3,1,0.72)");
+      ctx.fillStyle = vignette;
+      ctx.fillRect(0, 0, vw, vh);
+      ctx.restore();
+
       animationRef.current = requestAnimationFrame(animate);
     };
 
