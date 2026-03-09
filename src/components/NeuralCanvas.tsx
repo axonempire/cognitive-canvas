@@ -78,9 +78,9 @@ interface Vesicle {
 
 // Layer config: scale, opacity multiplier, blur, parallax factor, count ratio
 const LAYER_CONFIG = [
-  { scale: 0.45, opacity: 0.25, blur: 1.5, parallax: 0.15,  ratio: 0.25 },
-  { scale: 1.0,  opacity: 1.0,  blur: 0,   parallax: 0.0,   ratio: 0.55 },
-  { scale: 1.8,  opacity: 0.30, blur: 2.5, parallax: -0.25, ratio: 0.20 },
+  { scale: 0.45, opacity: 0.25, blur: 0, parallax: 0, ratio: 0.25 },
+  { scale: 1.0,  opacity: 1.0,  blur: 0, parallax: 0, ratio: 0.55 },
+  { scale: 1.8,  opacity: 0.30, blur: 0, parallax: 0, ratio: 0.20 },
 ];
 
 const NeuralCanvas = () => {
