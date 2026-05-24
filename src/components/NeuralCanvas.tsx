@@ -6,7 +6,9 @@ interface Dendrite {
   swayPhase: number;
   swaySpeed: number;
   swayAmount: number;
-  branches: { angle: number; length: number; swayPhase: number; swaySpeed: number; swayAmount: number; subBranches?: { angle: number; length: number }[] }[];
+  curve1: number;
+  curve2: number;
+  branches: { angle: number; length: number; swayPhase: number; swaySpeed: number; swayAmount: number; curve1: number; curve2: number; subBranches?: { angle: number; length: number; curve1: number; curve2: number }[] }[];
 }
 
 interface NeuronCell {
