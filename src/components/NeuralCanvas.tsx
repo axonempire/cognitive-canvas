@@ -783,7 +783,7 @@ const NeuralCanvas = () => {
         if (spike.progress >= 1) {
           spike.active = false;
           const target = neurons[spike.toNeuronIdx];
-          if (target) target.stimulation += 0.25 + Math.random() * 0.15;
+          if (target) target.stimulation += 0.14 + Math.random() * 0.10;
 
           if (spike.trailPoints.length >= 3) {
             synapticTrails.push({
