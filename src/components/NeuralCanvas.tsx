@@ -134,8 +134,8 @@ const NeuralCanvas = () => {
     const neurons: NeuronCell[] = [];
     const synapticSpikes: PropagatingSpike[] = [];
     const synapticTrails: SynapticTrail[] = [];
-    const FIRE_THRESHOLD  = 0.6;
-    const REFRACTORY_PERIOD = 120;
+    const FIRE_THRESHOLD  = 0.65;
+    const REFRACTORY_PERIOD = 170;
     const SYNAPSE_DIST    = 100;
     const SYNAPSE_DIST_SQ = SYNAPSE_DIST * SYNAPSE_DIST;
 
