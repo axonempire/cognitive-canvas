@@ -196,9 +196,14 @@ const NeuralCanvas = () => {
 
           for (let b = 0; b < branchCount; b++) {
             const subBranchCount = Math.random() > 0.6 ? Math.floor(randRange(1, 3)) : 0;
-            const subBranches: { angle: number; length: number }[] = [];
+            const subBranches: { angle: number; length: number; curve1: number; curve2: number }[] = [];
             for (let s = 0; s < subBranchCount; s++) {
-              subBranches.push({ angle: randRange(-0.6, 0.6), length: randRange(10, 22) * cfg.scale });
+              subBranches.push({
+                angle: randRange(-0.6, 0.6),
+                length: randRange(10, 22) * cfg.scale,
+                curve1: randRange(-0.18, 0.18),
+                curve2: randRange(-0.12, 0.12),
+              });
             }
             branches.push({
               angle:       randRange(-0.5, 0.5),
@@ -206,6 +211,8 @@ const NeuralCanvas = () => {
               swayPhase:   Math.random() * Math.PI * 2,
               swaySpeed:   0.003 + Math.random() * 0.006,
               swayAmount:  0.02 + Math.random() * 0.04,
+              curve1:      randRange(-0.22, 0.22),
+              curve2:      randRange(-0.15, 0.15),
               subBranches: subBranches.length > 0 ? subBranches : undefined,
             });
           }
@@ -215,6 +222,8 @@ const NeuralCanvas = () => {
             swayPhase:  Math.random() * Math.PI * 2,
             swaySpeed:  (0.002 + Math.random() * 0.004) * (layerIdx === 0 ? 0.6 : layerIdx === 2 ? 1.4 : 1),
             swayAmount: 0.015 + Math.random() * 0.03,
+            curve1:     randRange(-0.25, 0.25),
+            curve2:     randRange(-0.18, 0.18),
             branches,
           });
         }
@@ -222,9 +231,14 @@ const NeuralCanvas = () => {
         const avgAngle     = dendrites.reduce((s, d) => s + d.angle, 0) / dendrites.length;
         const axonAngle    = avgAngle + Math.PI + randRange(-0.4, 0.4);
         const terminalCount = Math.floor(randRange(3, 6));
-        const terminals: { angle: number; length: number }[] = [];
+        const terminals: { angle: number; length: number; curve1: number; curve2: number }[] = [];
         for (let t = 0; t < terminalCount; t++) {
-          terminals.push({ angle: randRange(-0.8, 0.8), length: randRange(12, 30) * cfg.scale });
+          terminals.push({
+            angle: randRange(-0.8, 0.8),
+            length: randRange(12, 30) * cfg.scale,
+            curve1: randRange(-0.2, 0.2),
+            curve2: randRange(-0.15, 0.15),
+          });
         }
 
         neurons.push({
