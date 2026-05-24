@@ -134,8 +134,8 @@ const NeuralCanvas = () => {
     const neurons: NeuronCell[] = [];
     const synapticSpikes: PropagatingSpike[] = [];
     const synapticTrails: SynapticTrail[] = [];
-    const FIRE_THRESHOLD  = 0.6;
-    const REFRACTORY_PERIOD = 120;
+    const FIRE_THRESHOLD  = 0.65;
+    const REFRACTORY_PERIOD = 170;
     const SYNAPSE_DIST    = 100;
     const SYNAPSE_DIST_SQ = SYNAPSE_DIST * SYNAPSE_DIST;
 
@@ -670,17 +670,24 @@ const NeuralCanvas = () => {
         if (!n.firing && n.refractoryTimer <= 0 && n.stimulation >= FIRE_THRESHOLD) triggerFire(i);
 
         if (n.firing) {
-          n.fireProgress += 0.012;
+          // Fast onset, slow calm tail — natural action-potential envelope
+          const step = n.fireProgress < 0.35
+            ? 0.022                                  // sharp rise
+            : 0.004 + 0.006 * (1 - Math.min(1, (n.fireProgress - 0.35) / 0.95)); // long ease-out
+          n.fireProgress += step;
           if (n.fireProgress >= 1.3) {
             n.firing       = false;
             n.fireProgress = 0;
             n.fireIntensity = 0;
             n.refractoryTimer = REFRACTORY_PERIOD;
 
-            // Only mid-layer neurons propagate synaptic spikes
+            // Only mid-layer neurons propagate synaptic spikes — and only occasionally
             if (n.layer === 1) {
               const terminals = getAxonTerminals(n);
+              const MAX_OUT = Math.random() < 0.25 ? 2 : 1; // usually one branch, rarely two
+              let emitted = 0;
               for (let j = 0; j < neurons.length; j++) {
+                if (emitted >= MAX_OUT) break;
                 if (j === i || neurons[j].layer !== 1) continue;
                 // Quick distance pre-check
                 const ndx = n.x - neurons[j].x;
@@ -695,16 +702,20 @@ const NeuralCanvas = () => {
                     const dx = term.x - tip.x;
                     const dy = term.y - tip.y;
                     if (dx * dx + dy * dy < SYNAPSE_DIST_SQ) {
-                      synapticSpikes.push({
-                        fromNeuronIdx: i,
-                        toNeuronIdx:   j,
-                        fromPoint:     { x: term.x, y: term.y },
-                        toPoint:       { x: tip.x, y: tip.y },
-                        progress:      0,
-                        speed:         0.02 + Math.random() * 0.015,
-                        active:        true,
-                        trailPoints:   [],
-                      });
+                      // Probabilistic release — most synapses stay quiet
+                      if (Math.random() < 0.45) {
+                        synapticSpikes.push({
+                          fromNeuronIdx: i,
+                          toNeuronIdx:   j,
+                          fromPoint:     { x: term.x, y: term.y },
+                          toPoint:       { x: tip.x, y: tip.y },
+                          progress:      0,
+                          speed:         0.018 + Math.random() * 0.012,
+                          active:        true,
+                          trailPoints:   [],
+                        });
+                        emitted++;
+                      }
                       connected = true;
                       break;
                     }
@@ -772,7 +783,7 @@ const NeuralCanvas = () => {
         if (spike.progress >= 1) {
           spike.active = false;
           const target = neurons[spike.toNeuronIdx];
-          if (target) target.stimulation += 0.25 + Math.random() * 0.15;
+          if (target) target.stimulation += 0.14 + Math.random() * 0.10;
 
           if (spike.trailPoints.length >= 3) {
             synapticTrails.push({
