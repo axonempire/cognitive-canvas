@@ -20,7 +20,7 @@ interface NeuronCell {
   pulsePhase: number;
   pulseSpeed: number;
   dendrites: Dendrite[];
-  axon: { angle: number; length: number; terminals: { angle: number; length: number }[] };
+  axon: { angle: number; length: number; curve1: number; curve2: number; terminals: { angle: number; length: number; curve1: number; curve2: number }[] };
   rotation: number;
   rotationSpeed: number;
   firing: boolean;
