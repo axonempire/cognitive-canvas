@@ -6,7 +6,9 @@ interface Dendrite {
   swayPhase: number;
   swaySpeed: number;
   swayAmount: number;
-  branches: { angle: number; length: number; swayPhase: number; swaySpeed: number; swayAmount: number; subBranches?: { angle: number; length: number }[] }[];
+  curve1: number;
+  curve2: number;
+  branches: { angle: number; length: number; swayPhase: number; swaySpeed: number; swayAmount: number; curve1: number; curve2: number; subBranches?: { angle: number; length: number; curve1: number; curve2: number }[] }[];
 }
 
 interface NeuronCell {
@@ -18,7 +20,7 @@ interface NeuronCell {
   pulsePhase: number;
   pulseSpeed: number;
   dendrites: Dendrite[];
-  axon: { angle: number; length: number; terminals: { angle: number; length: number }[] };
+  axon: { angle: number; length: number; curve1: number; curve2: number; terminals: { angle: number; length: number; curve1: number; curve2: number }[] };
   rotation: number;
   rotationSpeed: number;
   firing: boolean;
@@ -194,9 +196,14 @@ const NeuralCanvas = () => {
 
           for (let b = 0; b < branchCount; b++) {
             const subBranchCount = Math.random() > 0.6 ? Math.floor(randRange(1, 3)) : 0;
-            const subBranches: { angle: number; length: number }[] = [];
+            const subBranches: { angle: number; length: number; curve1: number; curve2: number }[] = [];
             for (let s = 0; s < subBranchCount; s++) {
-              subBranches.push({ angle: randRange(-0.6, 0.6), length: randRange(10, 22) * cfg.scale });
+              subBranches.push({
+                angle: randRange(-0.6, 0.6),
+                length: randRange(10, 22) * cfg.scale,
+                curve1: randRange(-0.18, 0.18),
+                curve2: randRange(-0.12, 0.12),
+              });
             }
             branches.push({
               angle:       randRange(-0.5, 0.5),
@@ -204,6 +211,8 @@ const NeuralCanvas = () => {
               swayPhase:   Math.random() * Math.PI * 2,
               swaySpeed:   0.003 + Math.random() * 0.006,
               swayAmount:  0.02 + Math.random() * 0.04,
+              curve1:      randRange(-0.22, 0.22),
+              curve2:      randRange(-0.15, 0.15),
               subBranches: subBranches.length > 0 ? subBranches : undefined,
             });
           }
@@ -213,6 +222,8 @@ const NeuralCanvas = () => {
             swayPhase:  Math.random() * Math.PI * 2,
             swaySpeed:  (0.002 + Math.random() * 0.004) * (layerIdx === 0 ? 0.6 : layerIdx === 2 ? 1.4 : 1),
             swayAmount: 0.015 + Math.random() * 0.03,
+            curve1:     randRange(-0.25, 0.25),
+            curve2:     randRange(-0.18, 0.18),
             branches,
           });
         }
@@ -220,9 +231,14 @@ const NeuralCanvas = () => {
         const avgAngle     = dendrites.reduce((s, d) => s + d.angle, 0) / dendrites.length;
         const axonAngle    = avgAngle + Math.PI + randRange(-0.4, 0.4);
         const terminalCount = Math.floor(randRange(3, 6));
-        const terminals: { angle: number; length: number }[] = [];
+        const terminals: { angle: number; length: number; curve1: number; curve2: number }[] = [];
         for (let t = 0; t < terminalCount; t++) {
-          terminals.push({ angle: randRange(-0.8, 0.8), length: randRange(12, 30) * cfg.scale });
+          terminals.push({
+            angle: randRange(-0.8, 0.8),
+            length: randRange(12, 30) * cfg.scale,
+            curve1: randRange(-0.2, 0.2),
+            curve2: randRange(-0.15, 0.15),
+          });
         }
 
         neurons.push({
@@ -234,7 +250,7 @@ const NeuralCanvas = () => {
           pulsePhase:       Math.random() * Math.PI * 2,
           pulseSpeed:       0.008 + Math.random() * 0.012,
           dendrites,
-          axon: { angle: axonAngle, length: randRange(60, 120) * cfg.scale, terminals },
+          axon: { angle: axonAngle, length: randRange(60, 120) * cfg.scale, curve1: randRange(-0.18, 0.18), curve2: randRange(-0.12, 0.12), terminals },
           rotation:         Math.random() * Math.PI * 2,
           rotationSpeed:    randRange(-0.0003, 0.0003),
           firing:           false,
@@ -304,31 +320,60 @@ const NeuralCanvas = () => {
 
     const drawBranch = (
       x1: number, y1: number, angle: number, length: number,
-      width: number, alpha: number, fireGlow: number
+      width: number, alpha: number, fireGlow: number,
+      curve1: number, curve2: number
     ): { x: number; y: number } => {
       const cosA = Math.cos(angle);
       const sinA = Math.sin(angle);
       const x2 = x1 + cosA * length;
       const y2 = y1 + sinA * length;
-      const cx = (x1 + x2) / 2 + sinA * length * 0.08;
-      const cy = (y1 + y2) / 2 - cosA * length * 0.08;
+      // Cubic Bezier with two asymmetric control points → organic, wandering curve.
+      const nx = sinA, ny = -cosA; // unit normal
+      const c1x = x1 + cosA * length * 0.33 + nx * length * curve1;
+      const c1y = y1 + sinA * length * 0.33 + ny * length * curve1;
+      const c2x = x1 + cosA * length * 0.66 + nx * length * curve2;
+      const c2y = y1 + sinA * length * 0.66 + ny * length * curve2;
 
+      // Base stroke — slightly thicker, lower alpha → suggests taper underneath
       ctx.beginPath();
       ctx.moveTo(x1, y1);
-      ctx.quadraticCurveTo(cx, cy, x2, y2);
+      ctx.bezierCurveTo(c1x, c1y, c2x, c2y, x2, y2);
+      const baseColor = fireGlow > 0
+        ? `rgba(${Math.round(200 + 25 * fireGlow)},${Math.round(160 + 30 * fireGlow)},${Math.round(100 + 40 * fireGlow)},${(alpha + fireGlow * 0.25) * 0.55})`
+        : `hsla(25, 38%, 32%, ${alpha * 0.6})`;
+      ctx.strokeStyle = baseColor;
+      ctx.lineWidth   = width + 0.7 + fireGlow * 0.5;
+      ctx.lineCap     = "round";
+      ctx.stroke();
 
+      // Crisp inner stroke — the visible neurite line, with stronger color
+      ctx.beginPath();
+      ctx.moveTo(x1, y1);
+      ctx.bezierCurveTo(c1x, c1y, c2x, c2y, x2, y2);
       if (fireGlow > 0) {
-        const r  = Math.round(200 + 25 * fireGlow);
-        const g  = Math.round(160 + 30 * fireGlow);
-        const b2 = Math.round(100 + 40 * fireGlow);
+        const r  = Math.round(210 + 25 * fireGlow);
+        const g  = Math.round(170 + 30 * fireGlow);
+        const b2 = Math.round(110 + 40 * fireGlow);
         ctx.strokeStyle = `rgba(${r},${g},${b2},${alpha + fireGlow * 0.25})`;
         ctx.lineWidth   = width + fireGlow * 0.8;
       } else {
-        ctx.strokeStyle = `hsla(25, 40%, 35%, ${alpha})`;
+        ctx.strokeStyle = `hsla(28, 48%, 42%, ${alpha})`;
         ctx.lineWidth   = width;
       }
-      ctx.lineCap = "round";
       ctx.stroke();
+
+      // Tapered tip — redraw the last third with a thinner stroke for organic narrowing.
+      const mx = 0.512 * x1 + 3 * 0.16 * 0.64 * c1x + 3 * 0.4 * 0.36 * c2x + 0.064 * x2;
+      const my = 0.512 * y1 + 3 * 0.16 * 0.64 * c1y + 3 * 0.4 * 0.36 * c2y + 0.064 * y2;
+      ctx.beginPath();
+      ctx.moveTo(mx, my);
+      ctx.quadraticCurveTo(c2x, c2y, x2, y2);
+      ctx.strokeStyle = fireGlow > 0
+        ? `rgba(230,195,140,${(alpha + fireGlow * 0.2) * 0.9})`
+        : `hsla(32, 55%, 48%, ${alpha * 0.85})`;
+      ctx.lineWidth = Math.max(0.3, width * 0.55);
+      ctx.stroke();
+
       return { x: x2, y: y2 };
     };
 
@@ -460,16 +505,16 @@ const NeuralCanvas = () => {
         d.swayPhase += d.swaySpeed;
         const sway  = Math.sin(d.swayPhase) * d.swayAmount;
         const angle = d.angle + n.rotation + sway;
-        const tip   = drawBranch(n.x, n.y, angle, d.length, 1.3, baseAlpha * 0.6 + dendGlow * 0.3, dendGlow);
+        const tip   = drawBranch(n.x, n.y, angle, d.length, 1.3, baseAlpha * 0.6 + dendGlow * 0.3, dendGlow, d.curve1, d.curve2);
 
         for (const b of d.branches) {
           b.swayPhase += b.swaySpeed;
           const bSway  = Math.sin(b.swayPhase) * b.swayAmount;
           const bAngle = angle + b.angle + bSway;
-          const bTip   = drawBranch(tip.x, tip.y, bAngle, b.length, 0.8, baseAlpha * 0.45 + dendGlow * 0.2, dendGlow * 0.7);
+          const bTip   = drawBranch(tip.x, tip.y, bAngle, b.length, 0.8, baseAlpha * 0.45 + dendGlow * 0.2, dendGlow * 0.7, b.curve1, b.curve2);
           if (b.subBranches) {
             for (const sb of b.subBranches) {
-              drawBranch(bTip.x, bTip.y, bAngle + sb.angle, sb.length, 0.4, baseAlpha * 0.3, dendGlow * 0.4);
+              drawBranch(bTip.x, bTip.y, bAngle + sb.angle, sb.length, 0.4, baseAlpha * 0.3, dendGlow * 0.4, sb.curve1, sb.curve2);
             }
           }
           ctx.beginPath();
@@ -479,33 +524,48 @@ const NeuralCanvas = () => {
         }
       }
 
-      // Axon
+      // Axon — wanders organically using two control points
       const axAngle = n.axon.angle + n.rotation;
       const cosAx = Math.cos(axAngle);
       const sinAx = Math.sin(axAngle);
       const axEndX = n.x + cosAx * n.axon.length;
       const axEndY = n.y + sinAx * n.axon.length;
-      const axMidX = (n.x + axEndX) / 2 + sinAx * n.axon.length * 0.06;
-      const axMidY = (n.y + axEndY) / 2 - cosAx * n.axon.length * 0.06;
+      const axNx = sinAx, axNy = -cosAx;
+      const axC1x = n.x + cosAx * n.axon.length * 0.33 + axNx * n.axon.length * n.axon.curve1;
+      const axC1y = n.y + sinAx * n.axon.length * 0.33 + axNy * n.axon.length * n.axon.curve1;
+      const axC2x = n.x + cosAx * n.axon.length * 0.66 + axNx * n.axon.length * n.axon.curve2;
+      const axC2y = n.y + sinAx * n.axon.length * 0.66 + axNy * n.axon.length * n.axon.curve2;
 
+      // Soft outer halo of the axon (suggests cell membrane thickness)
       ctx.beginPath();
       ctx.moveTo(n.x, n.y);
-      ctx.quadraticCurveTo(axMidX, axMidY, axEndX, axEndY);
-      if (axonFire > 0) {
-        ctx.strokeStyle = `rgba(${200 + 20 * axonFire}, ${165 + 25 * axonFire}, ${120 + 30 * axonFire}, ${baseAlpha * 0.5 + axonFire * 0.25})`;
-        ctx.lineWidth   = 1.6 + axonFire * 1;
-      } else {
-        ctx.strokeStyle = `hsla(35, 70%, 50%, ${baseAlpha * 0.4})`;
-        ctx.lineWidth   = 1.5;
-      }
+      ctx.bezierCurveTo(axC1x, axC1y, axC2x, axC2y, axEndX, axEndY);
+      ctx.strokeStyle = axonFire > 0
+        ? `rgba(220, 180, 130, ${(baseAlpha * 0.35 + axonFire * 0.2) * 0.6})`
+        : `hsla(32, 45%, 38%, ${baseAlpha * 0.28})`;
+      ctx.lineWidth = 2.6 + axonFire * 0.8;
       ctx.lineCap = "round";
       ctx.stroke();
 
-      // Fire flash along axon
+      // Crisp axon line
+      ctx.beginPath();
+      ctx.moveTo(n.x, n.y);
+      ctx.bezierCurveTo(axC1x, axC1y, axC2x, axC2y, axEndX, axEndY);
+      if (axonFire > 0) {
+        ctx.strokeStyle = `rgba(${200 + 20 * axonFire}, ${165 + 25 * axonFire}, ${120 + 30 * axonFire}, ${baseAlpha * 0.5 + axonFire * 0.25})`;
+        ctx.lineWidth   = 1.4 + axonFire * 1;
+      } else {
+        ctx.strokeStyle = `hsla(35, 70%, 50%, ${baseAlpha * 0.42})`;
+        ctx.lineWidth   = 1.3;
+      }
+      ctx.stroke();
+
+      // Fire flash along axon (sampled on the cubic curve)
       if (n.firing && n.fireProgress > 0.2 && n.fireProgress < 0.9) {
         const t  = Math.min(1, (n.fireProgress - 0.2) / 0.6);
-        const fx = (1 - t) * (1 - t) * n.x + 2 * (1 - t) * t * axMidX + t * t * axEndX;
-        const fy = (1 - t) * (1 - t) * n.y + 2 * (1 - t) * t * axMidY + t * t * axEndY;
+        const omt = 1 - t;
+        const fx = omt*omt*omt*n.x + 3*omt*omt*t*axC1x + 3*omt*t*t*axC2x + t*t*t*axEndX;
+        const fy = omt*omt*omt*n.y + 3*omt*omt*t*axC1y + 3*omt*t*t*axC2y + t*t*t*axEndY;
         const flashGlow = ctx.createRadialGradient(fx, fy, 0, fx, fy, 10);
         flashGlow.addColorStop(0,   `rgba(230,200,140,${0.4 * opacityMult})`);
         flashGlow.addColorStop(0.4, `rgba(210,175,120,${0.15 * opacityMult})`);
@@ -516,12 +576,12 @@ const NeuralCanvas = () => {
         ctx.fill();
       }
 
-      // Myelin sheath
-      ctx.setLineDash([6, 5]);
+      // Myelin sheath — long internodes, narrow Nodes of Ranvier
+      ctx.setLineDash([14, 4]);
       ctx.beginPath();
       ctx.moveTo(n.x, n.y);
-      ctx.quadraticCurveTo(axMidX, axMidY, axEndX, axEndY);
-      ctx.strokeStyle = `hsla(35, 50%, 45%, ${baseAlpha * 0.15})`;
+      ctx.bezierCurveTo(axC1x, axC1y, axC2x, axC2y, axEndX, axEndY);
+      ctx.strokeStyle = `hsla(35, 50%, 45%, ${baseAlpha * 0.18})`;
       ctx.lineWidth   = 3.5;
       ctx.stroke();
       ctx.setLineDash([]);
@@ -529,12 +589,19 @@ const NeuralCanvas = () => {
       // Axon terminals
       for (const t of n.axon.terminals) {
         const tAngle = axAngle + t.angle;
-        const tx     = axEndX + Math.cos(tAngle) * t.length;
-        const ty     = axEndY + Math.sin(tAngle) * t.length;
+        const tCos = Math.cos(tAngle);
+        const tSin = Math.sin(tAngle);
+        const tx     = axEndX + tCos * t.length;
+        const ty     = axEndY + tSin * t.length;
+        const tNx = tSin, tNy = -tCos;
+        const tc1x = axEndX + tCos * t.length * 0.33 + tNx * t.length * t.curve1;
+        const tc1y = axEndY + tSin * t.length * 0.33 + tNy * t.length * t.curve1;
+        const tc2x = axEndX + tCos * t.length * 0.66 + tNx * t.length * t.curve2;
+        const tc2y = axEndY + tSin * t.length * 0.66 + tNy * t.length * t.curve2;
 
         ctx.beginPath();
         ctx.moveTo(axEndX, axEndY);
-        ctx.lineTo(tx, ty);
+        ctx.bezierCurveTo(tc1x, tc1y, tc2x, tc2y, tx, ty);
         const tFire = terminalFire;
         if (tFire > 0) {
           ctx.strokeStyle = `rgba(220, 190, 140, ${baseAlpha * 0.4 + tFire * 0.25})`;
@@ -543,6 +610,7 @@ const NeuralCanvas = () => {
           ctx.strokeStyle = `hsla(35, 60%, 50%, ${baseAlpha * 0.35})`;
           ctx.lineWidth   = 0.7;
         }
+        ctx.lineCap = "round";
         ctx.stroke();
 
         // Synaptic bouton — simplified: skip gradient when not firing
