@@ -505,16 +505,16 @@ const NeuralCanvas = () => {
         d.swayPhase += d.swaySpeed;
         const sway  = Math.sin(d.swayPhase) * d.swayAmount;
         const angle = d.angle + n.rotation + sway;
-        const tip   = drawBranch(n.x, n.y, angle, d.length, 1.3, baseAlpha * 0.6 + dendGlow * 0.3, dendGlow);
+        const tip   = drawBranch(n.x, n.y, angle, d.length, 1.3, baseAlpha * 0.6 + dendGlow * 0.3, dendGlow, d.curve1, d.curve2);
 
         for (const b of d.branches) {
           b.swayPhase += b.swaySpeed;
           const bSway  = Math.sin(b.swayPhase) * b.swayAmount;
           const bAngle = angle + b.angle + bSway;
-          const bTip   = drawBranch(tip.x, tip.y, bAngle, b.length, 0.8, baseAlpha * 0.45 + dendGlow * 0.2, dendGlow * 0.7);
+          const bTip   = drawBranch(tip.x, tip.y, bAngle, b.length, 0.8, baseAlpha * 0.45 + dendGlow * 0.2, dendGlow * 0.7, b.curve1, b.curve2);
           if (b.subBranches) {
             for (const sb of b.subBranches) {
-              drawBranch(bTip.x, bTip.y, bAngle + sb.angle, sb.length, 0.4, baseAlpha * 0.3, dendGlow * 0.4);
+              drawBranch(bTip.x, bTip.y, bAngle + sb.angle, sb.length, 0.4, baseAlpha * 0.3, dendGlow * 0.4, sb.curve1, sb.curve2);
             }
           }
           ctx.beginPath();
