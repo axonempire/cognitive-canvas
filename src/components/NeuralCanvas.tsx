@@ -589,12 +589,19 @@ const NeuralCanvas = () => {
       // Axon terminals
       for (const t of n.axon.terminals) {
         const tAngle = axAngle + t.angle;
-        const tx     = axEndX + Math.cos(tAngle) * t.length;
-        const ty     = axEndY + Math.sin(tAngle) * t.length;
+        const tCos = Math.cos(tAngle);
+        const tSin = Math.sin(tAngle);
+        const tx     = axEndX + tCos * t.length;
+        const ty     = axEndY + tSin * t.length;
+        const tNx = tSin, tNy = -tCos;
+        const tc1x = axEndX + tCos * t.length * 0.33 + tNx * t.length * t.curve1;
+        const tc1y = axEndY + tSin * t.length * 0.33 + tNy * t.length * t.curve1;
+        const tc2x = axEndX + tCos * t.length * 0.66 + tNx * t.length * t.curve2;
+        const tc2y = axEndY + tSin * t.length * 0.66 + tNy * t.length * t.curve2;
 
         ctx.beginPath();
         ctx.moveTo(axEndX, axEndY);
-        ctx.lineTo(tx, ty);
+        ctx.bezierCurveTo(tc1x, tc1y, tc2x, tc2y, tx, ty);
         const tFire = terminalFire;
         if (tFire > 0) {
           ctx.strokeStyle = `rgba(220, 190, 140, ${baseAlpha * 0.4 + tFire * 0.25})`;
@@ -603,6 +610,7 @@ const NeuralCanvas = () => {
           ctx.strokeStyle = `hsla(35, 60%, 50%, ${baseAlpha * 0.35})`;
           ctx.lineWidth   = 0.7;
         }
+        ctx.lineCap = "round";
         ctx.stroke();
 
         // Synaptic bouton — simplified: skip gradient when not firing
