@@ -250,7 +250,7 @@ const NeuralCanvas = () => {
           pulsePhase:       Math.random() * Math.PI * 2,
           pulseSpeed:       0.008 + Math.random() * 0.012,
           dendrites,
-          axon: { angle: axonAngle, length: randRange(60, 120) * cfg.scale, terminals },
+          axon: { angle: axonAngle, length: randRange(60, 120) * cfg.scale, curve1: randRange(-0.18, 0.18), curve2: randRange(-0.12, 0.12), terminals },
           rotation:         Math.random() * Math.PI * 2,
           rotationSpeed:    randRange(-0.0003, 0.0003),
           firing:           false,
