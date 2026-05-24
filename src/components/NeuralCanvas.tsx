@@ -524,33 +524,48 @@ const NeuralCanvas = () => {
         }
       }
 
-      // Axon
+      // Axon — wanders organically using two control points
       const axAngle = n.axon.angle + n.rotation;
       const cosAx = Math.cos(axAngle);
       const sinAx = Math.sin(axAngle);
       const axEndX = n.x + cosAx * n.axon.length;
       const axEndY = n.y + sinAx * n.axon.length;
-      const axMidX = (n.x + axEndX) / 2 + sinAx * n.axon.length * 0.06;
-      const axMidY = (n.y + axEndY) / 2 - cosAx * n.axon.length * 0.06;
+      const axNx = sinAx, axNy = -cosAx;
+      const axC1x = n.x + cosAx * n.axon.length * 0.33 + axNx * n.axon.length * n.axon.curve1;
+      const axC1y = n.y + sinAx * n.axon.length * 0.33 + axNy * n.axon.length * n.axon.curve1;
+      const axC2x = n.x + cosAx * n.axon.length * 0.66 + axNx * n.axon.length * n.axon.curve2;
+      const axC2y = n.y + sinAx * n.axon.length * 0.66 + axNy * n.axon.length * n.axon.curve2;
 
+      // Soft outer halo of the axon (suggests cell membrane thickness)
       ctx.beginPath();
       ctx.moveTo(n.x, n.y);
-      ctx.quadraticCurveTo(axMidX, axMidY, axEndX, axEndY);
-      if (axonFire > 0) {
-        ctx.strokeStyle = `rgba(${200 + 20 * axonFire}, ${165 + 25 * axonFire}, ${120 + 30 * axonFire}, ${baseAlpha * 0.5 + axonFire * 0.25})`;
-        ctx.lineWidth   = 1.6 + axonFire * 1;
-      } else {
-        ctx.strokeStyle = `hsla(35, 70%, 50%, ${baseAlpha * 0.4})`;
-        ctx.lineWidth   = 1.5;
-      }
+      ctx.bezierCurveTo(axC1x, axC1y, axC2x, axC2y, axEndX, axEndY);
+      ctx.strokeStyle = axonFire > 0
+        ? `rgba(220, 180, 130, ${(baseAlpha * 0.35 + axonFire * 0.2) * 0.6})`
+        : `hsla(32, 45%, 38%, ${baseAlpha * 0.28})`;
+      ctx.lineWidth = 2.6 + axonFire * 0.8;
       ctx.lineCap = "round";
       ctx.stroke();
 
-      // Fire flash along axon
+      // Crisp axon line
+      ctx.beginPath();
+      ctx.moveTo(n.x, n.y);
+      ctx.bezierCurveTo(axC1x, axC1y, axC2x, axC2y, axEndX, axEndY);
+      if (axonFire > 0) {
+        ctx.strokeStyle = `rgba(${200 + 20 * axonFire}, ${165 + 25 * axonFire}, ${120 + 30 * axonFire}, ${baseAlpha * 0.5 + axonFire * 0.25})`;
+        ctx.lineWidth   = 1.4 + axonFire * 1;
+      } else {
+        ctx.strokeStyle = `hsla(35, 70%, 50%, ${baseAlpha * 0.42})`;
+        ctx.lineWidth   = 1.3;
+      }
+      ctx.stroke();
+
+      // Fire flash along axon (sampled on the cubic curve)
       if (n.firing && n.fireProgress > 0.2 && n.fireProgress < 0.9) {
         const t  = Math.min(1, (n.fireProgress - 0.2) / 0.6);
-        const fx = (1 - t) * (1 - t) * n.x + 2 * (1 - t) * t * axMidX + t * t * axEndX;
-        const fy = (1 - t) * (1 - t) * n.y + 2 * (1 - t) * t * axMidY + t * t * axEndY;
+        const omt = 1 - t;
+        const fx = omt*omt*omt*n.x + 3*omt*omt*t*axC1x + 3*omt*t*t*axC2x + t*t*t*axEndX;
+        const fy = omt*omt*omt*n.y + 3*omt*omt*t*axC1y + 3*omt*t*t*axC2y + t*t*t*axEndY;
         const flashGlow = ctx.createRadialGradient(fx, fy, 0, fx, fy, 10);
         flashGlow.addColorStop(0,   `rgba(230,200,140,${0.4 * opacityMult})`);
         flashGlow.addColorStop(0.4, `rgba(210,175,120,${0.15 * opacityMult})`);
@@ -561,12 +576,12 @@ const NeuralCanvas = () => {
         ctx.fill();
       }
 
-      // Myelin sheath
-      ctx.setLineDash([6, 5]);
+      // Myelin sheath — long internodes, narrow Nodes of Ranvier
+      ctx.setLineDash([14, 4]);
       ctx.beginPath();
       ctx.moveTo(n.x, n.y);
-      ctx.quadraticCurveTo(axMidX, axMidY, axEndX, axEndY);
-      ctx.strokeStyle = `hsla(35, 50%, 45%, ${baseAlpha * 0.15})`;
+      ctx.bezierCurveTo(axC1x, axC1y, axC2x, axC2y, axEndX, axEndY);
+      ctx.strokeStyle = `hsla(35, 50%, 45%, ${baseAlpha * 0.18})`;
       ctx.lineWidth   = 3.5;
       ctx.stroke();
       ctx.setLineDash([]);
