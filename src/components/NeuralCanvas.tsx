@@ -320,31 +320,60 @@ const NeuralCanvas = () => {
 
     const drawBranch = (
       x1: number, y1: number, angle: number, length: number,
-      width: number, alpha: number, fireGlow: number
+      width: number, alpha: number, fireGlow: number,
+      curve1: number, curve2: number
     ): { x: number; y: number } => {
       const cosA = Math.cos(angle);
       const sinA = Math.sin(angle);
       const x2 = x1 + cosA * length;
       const y2 = y1 + sinA * length;
-      const cx = (x1 + x2) / 2 + sinA * length * 0.08;
-      const cy = (y1 + y2) / 2 - cosA * length * 0.08;
+      // Cubic Bezier with two asymmetric control points → organic, wandering curve.
+      const nx = sinA, ny = -cosA; // unit normal
+      const c1x = x1 + cosA * length * 0.33 + nx * length * curve1;
+      const c1y = y1 + sinA * length * 0.33 + ny * length * curve1;
+      const c2x = x1 + cosA * length * 0.66 + nx * length * curve2;
+      const c2y = y1 + sinA * length * 0.66 + ny * length * curve2;
 
+      // Base stroke — slightly thicker, lower alpha → suggests taper underneath
       ctx.beginPath();
       ctx.moveTo(x1, y1);
-      ctx.quadraticCurveTo(cx, cy, x2, y2);
+      ctx.bezierCurveTo(c1x, c1y, c2x, c2y, x2, y2);
+      const baseColor = fireGlow > 0
+        ? `rgba(${Math.round(200 + 25 * fireGlow)},${Math.round(160 + 30 * fireGlow)},${Math.round(100 + 40 * fireGlow)},${(alpha + fireGlow * 0.25) * 0.55})`
+        : `hsla(25, 38%, 32%, ${alpha * 0.6})`;
+      ctx.strokeStyle = baseColor;
+      ctx.lineWidth   = width + 0.7 + fireGlow * 0.5;
+      ctx.lineCap     = "round";
+      ctx.stroke();
 
+      // Crisp inner stroke — the visible neurite line, with stronger color
+      ctx.beginPath();
+      ctx.moveTo(x1, y1);
+      ctx.bezierCurveTo(c1x, c1y, c2x, c2y, x2, y2);
       if (fireGlow > 0) {
-        const r  = Math.round(200 + 25 * fireGlow);
-        const g  = Math.round(160 + 30 * fireGlow);
-        const b2 = Math.round(100 + 40 * fireGlow);
+        const r  = Math.round(210 + 25 * fireGlow);
+        const g  = Math.round(170 + 30 * fireGlow);
+        const b2 = Math.round(110 + 40 * fireGlow);
         ctx.strokeStyle = `rgba(${r},${g},${b2},${alpha + fireGlow * 0.25})`;
         ctx.lineWidth   = width + fireGlow * 0.8;
       } else {
-        ctx.strokeStyle = `hsla(25, 40%, 35%, ${alpha})`;
+        ctx.strokeStyle = `hsla(28, 48%, 42%, ${alpha})`;
         ctx.lineWidth   = width;
       }
-      ctx.lineCap = "round";
       ctx.stroke();
+
+      // Tapered tip — redraw the last third with a thinner stroke for organic narrowing.
+      const mx = 0.512 * x1 + 3 * 0.16 * 0.64 * c1x + 3 * 0.4 * 0.36 * c2x + 0.064 * x2;
+      const my = 0.512 * y1 + 3 * 0.16 * 0.64 * c1y + 3 * 0.4 * 0.36 * c2y + 0.064 * y2;
+      ctx.beginPath();
+      ctx.moveTo(mx, my);
+      ctx.quadraticCurveTo(c2x, c2y, x2, y2);
+      ctx.strokeStyle = fireGlow > 0
+        ? `rgba(230,195,140,${(alpha + fireGlow * 0.2) * 0.9})`
+        : `hsla(32, 55%, 48%, ${alpha * 0.85})`;
+      ctx.lineWidth = Math.max(0.3, width * 0.55);
+      ctx.stroke();
+
       return { x: x2, y: y2 };
     };
 
