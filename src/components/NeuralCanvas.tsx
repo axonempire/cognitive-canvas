@@ -186,58 +186,58 @@ const NeuralCanvas = () => {
       const count = Math.round(totalCount * cfg.ratio);
 
       for (let i = 0; i < count; i++) {
-        const dendriteCount = Math.floor(randRange(3, 6));
+        const dendriteCount = Math.floor(randRange(5, 9));
         const dendrites: Dendrite[] = [];
 
         for (let d = 0; d < dendriteCount; d++) {
-          const baseAngle   = (d / dendriteCount) * Math.PI * 2 + randRange(-0.3, 0.3);
-          const branchCount = Math.floor(randRange(2, 4));
+          const baseAngle   = (d / dendriteCount) * Math.PI * 2 + randRange(-0.35, 0.35);
+          const branchCount = Math.floor(randRange(3, 6));
           const branches: Dendrite["branches"][0][] = [];
 
           for (let b = 0; b < branchCount; b++) {
-            const subBranchCount = Math.random() > 0.6 ? Math.floor(randRange(1, 3)) : 0;
+            const subBranchCount = Math.random() > 0.2 ? Math.floor(randRange(2, 5)) : 1;
             const subBranches: { angle: number; length: number; curve1: number; curve2: number }[] = [];
             for (let s = 0; s < subBranchCount; s++) {
               subBranches.push({
-                angle: randRange(-0.6, 0.6),
-                length: randRange(10, 22) * cfg.scale,
-                curve1: randRange(-0.18, 0.18),
-                curve2: randRange(-0.12, 0.12),
+                angle: randRange(-0.9, 0.9),
+                length: randRange(8, 20) * cfg.scale,
+                curve1: randRange(-0.22, 0.22),
+                curve2: randRange(-0.16, 0.16),
               });
             }
             branches.push({
-              angle:       randRange(-0.5, 0.5),
-              length:      randRange(15, 38) * cfg.scale,
+              angle:       randRange(-0.7, 0.7),
+              length:      randRange(18, 42) * cfg.scale,
               swayPhase:   Math.random() * Math.PI * 2,
               swaySpeed:   0.003 + Math.random() * 0.006,
               swayAmount:  0.02 + Math.random() * 0.04,
-              curve1:      randRange(-0.22, 0.22),
-              curve2:      randRange(-0.15, 0.15),
-              subBranches: subBranches.length > 0 ? subBranches : undefined,
+              curve1:      randRange(-0.28, 0.28),
+              curve2:      randRange(-0.2, 0.2),
+              subBranches,
             });
           }
           dendrites.push({
             angle:      baseAngle,
-            length:     randRange(30, 55) * cfg.scale,
+            length:     randRange(38, 68) * cfg.scale,
             swayPhase:  Math.random() * Math.PI * 2,
             swaySpeed:  (0.002 + Math.random() * 0.004) * (layerIdx === 0 ? 0.6 : layerIdx === 2 ? 1.4 : 1),
             swayAmount: 0.015 + Math.random() * 0.03,
-            curve1:     randRange(-0.25, 0.25),
-            curve2:     randRange(-0.18, 0.18),
+            curve1:     randRange(-0.3, 0.3),
+            curve2:     randRange(-0.22, 0.22),
             branches,
           });
         }
 
         const avgAngle     = dendrites.reduce((s, d) => s + d.angle, 0) / dendrites.length;
         const axonAngle    = avgAngle + Math.PI + randRange(-0.4, 0.4);
-        const terminalCount = Math.floor(randRange(3, 6));
+        const terminalCount = Math.floor(randRange(5, 9));
         const terminals: { angle: number; length: number; curve1: number; curve2: number }[] = [];
         for (let t = 0; t < terminalCount; t++) {
           terminals.push({
-            angle: randRange(-0.8, 0.8),
-            length: randRange(12, 30) * cfg.scale,
-            curve1: randRange(-0.2, 0.2),
-            curve2: randRange(-0.15, 0.15),
+            angle: randRange(-1.0, 1.0),
+            length: randRange(14, 34) * cfg.scale,
+            curve1: randRange(-0.24, 0.24),
+            curve2: randRange(-0.18, 0.18),
           });
         }
 
