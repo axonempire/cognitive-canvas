@@ -138,7 +138,7 @@ const NeuralCanvas = () => {
     const synapticTrails: SynapticTrail[] = [];
     const FIRE_THRESHOLD  = 0.65;
     const REFRACTORY_PERIOD = 170;
-    const SYNAPSE_DIST    = 100;
+    const SYNAPSE_DIST    = 150;
     const SYNAPSE_DIST_SQ = SYNAPSE_DIST * SYNAPSE_DIST;
 
     const randRange = (min: number, max: number) => min + Math.random() * (max - min);
