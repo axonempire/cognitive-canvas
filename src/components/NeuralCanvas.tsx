@@ -411,7 +411,7 @@ const NeuralCanvas = () => {
           // Quick bounding-box pre-check (neurons too far apart)
           const ndx = neurons[i].x - neurons[j].x;
           const ndy = neurons[i].y - neurons[j].y;
-          if (ndx * ndx + ndy * ndy > 90000) continue; // 300px max possible reach
+          if (ndx * ndx + ndy * ndy > 160000) continue; // ~400px max possible reach
 
           const tips = getDendriteTips(neurons[j]);
           for (const term of terminals) {
