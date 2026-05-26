@@ -760,7 +760,7 @@ const NeuralCanvas = () => {
                 // Quick distance pre-check
                 const ndx = n.x - neurons[j].x;
                 const ndy = n.y - neurons[j].y;
-                if (ndx * ndx + ndy * ndy > 90000) continue;
+                if (ndx * ndx + ndy * ndy > 160000) continue;
 
                 const tips = getDendriteTips(neurons[j]);
                 let connected = false;
