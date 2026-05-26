@@ -987,21 +987,28 @@ const NeuralCanvas = () => {
 
         // ── Mid-layer: cached connections + spikes + trails ──────
         if (layerIdx === 1) {
-          // Synaptic connection lines from cache
-          ctx.setLineDash([2, 3]);
-          ctx.lineWidth = 0.5;
+          // Synaptic connection lines from cache — solid spider-web threads
           ctx.lineCap = "round";
           for (const conn of cachedSynapses) {
-            const alpha = (1 - conn.dist / SYNAPSE_DIST) * 0.06;
+            const proximity = 1 - conn.dist / SYNAPSE_DIST;
+            const alpha = 0.08 + proximity * 0.22;
+            const mx = (conn.termX + conn.tipX) / 2;
+            const my = (conn.termY + conn.tipY) / 2 - conn.dist * 0.1;
+            // Soft halo strand
             ctx.beginPath();
             ctx.moveTo(conn.termX, conn.termY);
-            const mx = (conn.termX + conn.tipX) / 2;
-            const my = (conn.termY + conn.tipY) / 2 - conn.dist * 0.12;
             ctx.quadraticCurveTo(mx, my, conn.tipX, conn.tipY);
-            ctx.strokeStyle = `hsla(35, 40%, 45%, ${alpha})`;
+            ctx.strokeStyle = `hsla(30, 55%, 42%, ${alpha * 0.45})`;
+            ctx.lineWidth = 1.4;
+            ctx.stroke();
+            // Crisp inner filament
+            ctx.beginPath();
+            ctx.moveTo(conn.termX, conn.termY);
+            ctx.quadraticCurveTo(mx, my, conn.tipX, conn.tipY);
+            ctx.strokeStyle = `hsla(36, 65%, 55%, ${alpha})`;
+            ctx.lineWidth = 0.55;
             ctx.stroke();
           }
-          ctx.setLineDash([]);
 
           // Live spike balls
           for (const spike of synapticSpikes) {
