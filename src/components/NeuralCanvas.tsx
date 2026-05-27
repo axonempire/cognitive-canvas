@@ -991,9 +991,10 @@ const NeuralCanvas = () => {
           // Firing logic still uses ALL cached synapses; we just render a small subset
           // so neurons stay readable and the background doesn't eat the visuals.
           ctx.lineCap = "round";
-          const MIN_VISIBLE_DIST = SYNAPSE_DIST * 0.6; // skip short dendrite-range links
+          const MIN_VISIBLE_DIST = SYNAPSE_DIST * 0.78; // only the longest axon reaches
           for (let ci = 0; ci < cachedSynapses.length; ci++) {
-            if (ci % 10 !== 0) continue; // ~10% deterministic subset
+            if (ci % 25 !== 0) continue; // ~4% deterministic subset
+
             const conn = cachedSynapses[ci];
             if (conn.dist < MIN_VISIBLE_DIST) continue; // keep only long, axon-like reaches
             const reach = (conn.dist - MIN_VISIBLE_DIST) / (SYNAPSE_DIST - MIN_VISIBLE_DIST);
