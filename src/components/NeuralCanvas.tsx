@@ -987,31 +987,35 @@ const NeuralCanvas = () => {
 
         // ── Mid-layer: cached connections + spikes + trails ──────
         if (layerIdx === 1) {
-          // Synaptic connection lines from cache — solid spider-web threads
-          // Only ~30% rendered to keep the view uncluttered (firing logic still uses all)
+          // Axon-like synaptic threads — sparse, long-reach connections only.
+          // Firing logic still uses ALL cached synapses; we just render a small subset
+          // so neurons stay readable and the background doesn't eat the visuals.
           ctx.lineCap = "round";
+          const MIN_VISIBLE_DIST = SYNAPSE_DIST * 0.6; // skip short dendrite-range links
           for (let ci = 0; ci < cachedSynapses.length; ci++) {
-            if (ci % 10 >= 3) continue; // deterministic 30% subset
+            if (ci % 10 !== 0) continue; // ~10% deterministic subset
             const conn = cachedSynapses[ci];
-            const proximity = 1 - conn.dist / SYNAPSE_DIST;
-            const alpha = 0.08 + proximity * 0.22;
+            if (conn.dist < MIN_VISIBLE_DIST) continue; // keep only long, axon-like reaches
+            const reach = (conn.dist - MIN_VISIBLE_DIST) / (SYNAPSE_DIST - MIN_VISIBLE_DIST);
+            const alpha = 0.06 + reach * 0.14;
             const mx = (conn.termX + conn.tipX) / 2;
-            const my = (conn.termY + conn.tipY) / 2 - conn.dist * 0.1;
+            const my = (conn.termY + conn.tipY) / 2 - conn.dist * 0.08;
             // Soft halo strand
             ctx.beginPath();
             ctx.moveTo(conn.termX, conn.termY);
             ctx.quadraticCurveTo(mx, my, conn.tipX, conn.tipY);
-            ctx.strokeStyle = `hsla(30, 55%, 42%, ${alpha * 0.45})`;
-            ctx.lineWidth = 1.4;
+            ctx.strokeStyle = `hsla(30, 55%, 42%, ${alpha * 0.4})`;
+            ctx.lineWidth = 1.0;
             ctx.stroke();
             // Crisp inner filament
             ctx.beginPath();
             ctx.moveTo(conn.termX, conn.termY);
             ctx.quadraticCurveTo(mx, my, conn.tipX, conn.tipY);
             ctx.strokeStyle = `hsla(36, 65%, 55%, ${alpha})`;
-            ctx.lineWidth = 0.55;
+            ctx.lineWidth = 0.4;
             ctx.stroke();
           }
+
 
 
           // Live spike balls
