@@ -988,8 +988,11 @@ const NeuralCanvas = () => {
         // ── Mid-layer: cached connections + spikes + trails ──────
         if (layerIdx === 1) {
           // Synaptic connection lines from cache — solid spider-web threads
+          // Only ~30% rendered to keep the view uncluttered (firing logic still uses all)
           ctx.lineCap = "round";
-          for (const conn of cachedSynapses) {
+          for (let ci = 0; ci < cachedSynapses.length; ci++) {
+            if (ci % 10 >= 3) continue; // deterministic 30% subset
+            const conn = cachedSynapses[ci];
             const proximity = 1 - conn.dist / SYNAPSE_DIST;
             const alpha = 0.08 + proximity * 0.22;
             const mx = (conn.termX + conn.tipX) / 2;
@@ -1009,6 +1012,7 @@ const NeuralCanvas = () => {
             ctx.lineWidth = 0.55;
             ctx.stroke();
           }
+
 
           // Live spike balls
           for (const spike of synapticSpikes) {
