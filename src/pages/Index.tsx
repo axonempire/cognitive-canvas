@@ -12,6 +12,7 @@ const Index = () => {
       <FeaturesSection />
       <AboutSection />
       <Footer />
+      <div style={{display:"none"}}>Hello from Wasmer</div>
     </div>
   );
 };
