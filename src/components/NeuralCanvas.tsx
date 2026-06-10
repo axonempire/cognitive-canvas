@@ -985,37 +985,10 @@ const NeuralCanvas = () => {
           }
         }
 
-        // ── Mid-layer: cached connections + spikes + trails ──────
+        // ── Mid-layer: live spikes + trails only (no static filaments) ──
         if (layerIdx === 1) {
-          // Axon-like synaptic threads — extremely sparse, short range only.
-          // We previously biased toward the longest reaches, which created prominent
-          // diagonal streaks across the canvas. Now we cap MAX length so threads only
-          // bridge nearby neurons and never stretch corner-to-corner.
           ctx.lineCap = "round";
-          const MAX_VISIBLE_DIST = SYNAPSE_DIST * 0.55; // hide long diagonal stretches
-          for (let ci = 0; ci < cachedSynapses.length; ci++) {
-            if (ci % 40 !== 0) continue; // ~2.5% deterministic subset
-            const conn = cachedSynapses[ci];
-            if (conn.dist > MAX_VISIBLE_DIST) continue; // skip the long streaks
-            const proximity = 1 - conn.dist / MAX_VISIBLE_DIST;
-            const alpha = 0.05 + proximity * 0.10;
-            const mx = (conn.termX + conn.tipX) / 2;
-            const my = (conn.termY + conn.tipY) / 2 - conn.dist * 0.06;
-            // Soft halo strand
-            ctx.beginPath();
-            ctx.moveTo(conn.termX, conn.termY);
-            ctx.quadraticCurveTo(mx, my, conn.tipX, conn.tipY);
-            ctx.strokeStyle = `hsla(30, 55%, 42%, ${alpha * 0.4})`;
-            ctx.lineWidth = 0.9;
-            ctx.stroke();
-            // Crisp inner filament
-            ctx.beginPath();
-            ctx.moveTo(conn.termX, conn.termY);
-            ctx.quadraticCurveTo(mx, my, conn.tipX, conn.tipY);
-            ctx.strokeStyle = `hsla(36, 65%, 55%, ${alpha})`;
-            ctx.lineWidth = 0.35;
-            ctx.stroke();
-          }
+
 
 
 
