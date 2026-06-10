@@ -578,14 +578,16 @@ const NeuralCanvas = () => {
       }
 
       // Myelin sheath — long internodes, narrow Nodes of Ranvier
-      ctx.setLineDash([14, 4]);
-      ctx.beginPath();
-      ctx.moveTo(n.x, n.y);
-      ctx.bezierCurveTo(axC1x, axC1y, axC2x, axC2y, axEndX, axEndY);
-      ctx.strokeStyle = `hsla(35, 50%, 45%, ${baseAlpha * 0.18})`;
-      ctx.lineWidth   = 3.5;
-      ctx.stroke();
-      ctx.setLineDash([]);
+      if (opacityMult >= 0.95) {
+        ctx.setLineDash([14, 4]);
+        ctx.beginPath();
+        ctx.moveTo(n.x, n.y);
+        ctx.bezierCurveTo(axC1x, axC1y, axC2x, axC2y, axEndX, axEndY);
+        ctx.strokeStyle = `hsla(35, 50%, 45%, ${baseAlpha * 0.10})`;
+        ctx.lineWidth   = 2.2;
+        ctx.stroke();
+        ctx.setLineDash([]);
+      }
 
       // Axon terminals
       for (const t of n.axon.terminals) {
