@@ -1080,19 +1080,8 @@ const NeuralCanvas = () => {
       if (vignetteNeedsRender) renderVignette();
       ctx.drawImage(vignetteCanvas, 0, 0);
 
-      // ── Organic noise texture overlay ──────────────────────────────
-      noiseTime += 0.35;
-      ctx.save();
-      ctx.globalAlpha              = 0.030;
-      ctx.globalCompositeOperation = "screen";
-      if (cachedNoisePattern) {
-        const nx = Math.floor(noiseTime % 256);
-        const ny = Math.floor((noiseTime * 0.61803) % 256);
-        ctx.translate(nx, ny);
-        ctx.fillStyle = cachedNoisePattern;
-        ctx.fillRect(-nx, -ny, canvas.width + 256, canvas.height + 256);
-      }
-      ctx.restore();
+      // (Noise texture overlay removed — was producing visible diagonal streaks.)
+
 
       animationRef.current = requestAnimationFrame(animate);
     };
