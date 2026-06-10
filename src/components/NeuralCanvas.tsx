@@ -62,6 +62,7 @@ interface PropagatingSpike {
   toPoint: { x: number; y: number };
   progress: number;
   speed: number;
+  delay: number;
   active: boolean;
   trailPoints: { x: number; y: number }[];
 }
@@ -148,6 +149,10 @@ const NeuralCanvas = () => {
     const randRange = (min: number, max: number) => min + Math.random() * (max - min);
     const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
     const normalizeAngle = (angle: number) => Math.atan2(Math.sin(angle), Math.cos(angle));
+    const smoothstep = (value: number) => {
+      const t = clamp(value, 0, 1);
+      return t * t * (3 - 2 * t);
+    };
 
     // Even grid+jitter placement — stable tissue sheet, then connectivity defines structure.
     const placeNeuronsEvenly = (count: number, padding: number) => {
@@ -379,6 +384,46 @@ const NeuralCanvas = () => {
       const avgX = sources.reduce((sum, sourceIdx) => sum + neurons[sourceIdx].x, 0) / sources.length;
       const avgY = sources.reduce((sum, sourceIdx) => sum + neurons[sourceIdx].y, 0) / sources.length;
       n.dendritePoleAngle = Math.atan2(avgY - n.y, avgX - n.x) + randRange(-0.22, 0.22);
+    }
+
+    // Keep each neuron's axon anatomically opposite its dendritic arbor.
+    // Terminal branches can still bend toward graph targets after leaving the soma.
+    for (const i of midIndices) {
+      const n = neurons[i];
+      n.axonBaseAngle = n.dendritePoleAngle + Math.PI + randRange(-0.08, 0.08);
+      n.axon.angleOffset = randRange(-0.04, 0.04);
+
+      if (n.targetIndices.length === 0) continue;
+      const targets = n.targetIndices
+        .map(targetIdx => {
+          const dx = neurons[targetIdx].x - n.x;
+          const dy = neurons[targetIdx].y - n.y;
+          return { idx: targetIdx, dist: Math.hypot(dx, dy), angle: Math.atan2(dy, dx) };
+        })
+        .sort((a, b) => a.dist - b.dist);
+
+      n.axon.length = clamp(targets[0].dist * 0.68, 72, 160);
+      n.axon.terminals = targets.map(target => {
+        const relativeAngle = normalizeAngle(target.angle - n.axonBaseAngle);
+        const twigCount = Math.floor(randRange(1, 3));
+        const twigs: DendriteBranch[] = [];
+        for (let twigIdx = 0; twigIdx < twigCount; twigIdx++) {
+          twigs.push({
+            angle:  randRange(-0.65, 0.65),
+            length: randRange(10, 22),
+            curve1: randRange(-0.2, 0.2),
+            curve2: randRange(-0.16, 0.16),
+          });
+        }
+        return {
+          angle:        clamp(relativeAngle, -1.05, 1.05) + randRange(-0.1, 0.1),
+          length:       clamp(target.dist * 0.24, 22, 58),
+          curve1:       randRange(-0.18, 0.18),
+          curve2:       randRange(-0.14, 0.14),
+          boutonRadius: randRange(1.2, 2.0),
+          twigs,
+        };
+      });
     }
 
     // ── Helpers ───────────────────────────────────────────────────────
@@ -777,11 +822,11 @@ const NeuralCanvas = () => {
 
         // Action-potential wave traveling along the axon
         if (n.firing && n.fireProgress > 0.15 && n.fireProgress < 0.88) {
-          const waveT = Math.min(1, (n.fireProgress - 0.15) / 0.7);
+          const waveT = smoothstep((n.fireProgress - 0.15) / 0.7);
           const head  = sampleCubic(start.x, start.y, c1x, c1y, c2x, c2y, endX, endY, waveT);
-          const tailT = Math.max(0, waveT - 0.22);
+          const tailT = Math.max(0, waveT - 0.3);
           const tail  = sampleCubic(start.x, start.y, c1x, c1y, c2x, c2y, endX, endY, tailT);
-          const waveAlpha = (0.55 + somaFire * 0.35) * opacityMult;
+          const waveAlpha = (0.36 + somaFire * 0.18) * opacityMult;
 
           ctx.beginPath();
           ctx.moveTo(tail.x, tail.y);
@@ -791,17 +836,17 @@ const NeuralCanvas = () => {
             const p = sampleCubic(start.x, start.y, c1x, c1y, c2x, c2y, endX, endY, t);
             ctx.lineTo(p.x, p.y);
           }
-          ctx.strokeStyle = `hsla(42, 82%, 68%, ${waveAlpha * 0.58})`;
-          ctx.lineWidth   = 2.4 + somaFire * 0.9;
+          ctx.strokeStyle = `hsla(40, 68%, 62%, ${waveAlpha * 0.46})`;
+          ctx.lineWidth   = 1.8 + somaFire * 0.55;
           ctx.lineCap     = "round";
           ctx.stroke();
 
-          const spikeGlow = ctx.createRadialGradient(head.x, head.y, 0, head.x, head.y, 9);
-          spikeGlow.addColorStop(0,   `rgba(235,175,100,${waveAlpha * 0.34})`);
-          spikeGlow.addColorStop(0.45, `rgba(215,145,75,${waveAlpha * 0.16})`);
+          const spikeGlow = ctx.createRadialGradient(head.x, head.y, 0, head.x, head.y, 7);
+          spikeGlow.addColorStop(0,   `rgba(220,150,85,${waveAlpha * 0.22})`);
+          spikeGlow.addColorStop(0.5, `rgba(190,120,70,${waveAlpha * 0.1})`);
           spikeGlow.addColorStop(1,   `rgba(255,180,100,0)`);
           ctx.beginPath();
-          ctx.arc(head.x, head.y, 9, 0, Math.PI * 2);
+          ctx.arc(head.x, head.y, 7, 0, Math.PI * 2);
           ctx.fillStyle = spikeGlow;
           ctx.fill();
         }
@@ -1040,10 +1085,10 @@ const NeuralCanvas = () => {
         if (!n.firing && n.refractoryTimer <= 0 && n.stimulation >= FIRE_THRESHOLD) triggerFire(i);
 
         if (n.firing) {
-          // Fast onset, slow calm tail — natural action-potential envelope
+          // Soft onset and slow calm tail — less abrupt action-potential envelope
           const step = n.fireProgress < 0.35
-            ? 0.022                                  // sharp rise
-            : 0.004 + 0.006 * (1 - Math.min(1, (n.fireProgress - 0.35) / 0.95)); // long ease-out
+            ? 0.015
+            : 0.003 + 0.0045 * (1 - Math.min(1, (n.fireProgress - 0.35) / 0.95));
           n.fireProgress += step;
           if (n.fireProgress >= 1.3) {
             n.firing       = false;
@@ -1056,7 +1101,7 @@ const NeuralCanvas = () => {
               const outgoing = cachedSynapses.filter(s => s.fromIdx === i);
               const MAX_OUT = Math.random() < 0.35 ? 3 : 2;
               let emitted = 0;
-              for (const synapse of outgoing) {
+              for (const synapse of outgoing.sort((a, b) => a.dist - b.dist)) {
                 if (emitted >= MAX_OUT) break;
                 // Probabilistic release — most structural synapses stay quiet.
                 if (Math.random() < 0.58) {
@@ -1066,7 +1111,8 @@ const NeuralCanvas = () => {
                     fromPoint:     { x: synapse.termX, y: synapse.termY },
                     toPoint:       { x: synapse.tipX, y: synapse.tipY },
                     progress:      0,
-                    speed:         0.018 + Math.random() * 0.012,
+                    speed:         0.011 + Math.random() * 0.007,
+                    delay:         emitted * 9 + Math.floor(Math.random() * 8),
                     active:        true,
                     trailPoints:   [],
                   });
@@ -1119,6 +1165,10 @@ const NeuralCanvas = () => {
       for (let si = synapticSpikes.length - 1; si >= 0; si--) {
         const spike = synapticSpikes[si];
         if (!spike.active) { synapticSpikes.splice(si, 1); continue; }
+        if (spike.delay > 0) {
+          spike.delay--;
+          continue;
+        }
         spike.progress += spike.speed;
 
         const { fromPoint: fp, toPoint: tp } = spike;
@@ -1143,8 +1193,8 @@ const NeuralCanvas = () => {
           if (spike.trailPoints.length >= 3) {
             synapticTrails.push({
               points:    spike.trailPoints,
-              alpha:     0.9,
-              fadeSpeed: 0.005 + Math.random() * 0.006,
+              alpha:     0.72,
+              fadeSpeed: 0.0035 + Math.random() * 0.0045,
               hue:       200 + Math.random() * 25,
             });
           }
@@ -1315,52 +1365,53 @@ const NeuralCanvas = () => {
           // Synaptic transmission — neurotransmitter pulse from bouton to dendrite
           for (const spike of synapticSpikes) {
             if (!spike.active) continue;
+            if (spike.delay > 0) continue;
             const { fromPoint: fp, toPoint: tp } = spike;
             const dx   = tp.x - fp.x;
             const dy   = tp.y - fp.y;
             const dist = Math.sqrt(dx * dx + dy * dy);
             const mx   = (fp.x + tp.x) / 2;
             const my   = (fp.y + tp.y) / 2 - dist * 0.1;
-            const t    = spike.progress;
+            const t    = smoothstep(spike.progress);
             const x    = (1 - t) * (1 - t) * fp.x + 2 * (1 - t) * t * mx + t * t * tp.x;
             const y    = (1 - t) * (1 - t) * fp.y + 2 * (1 - t) * t * my + t * t * tp.y;
 
-            const fadeIn  = Math.min(t * 6, 1);
-            const fadeOut = Math.min((1 - t) * 4, 1);
-            const alpha   = fadeIn * fadeOut;
+            const fadeIn  = smoothstep(spike.progress * 3.2);
+            const fadeOut = smoothstep((1 - spike.progress) * 2.4);
+            const alpha   = fadeIn * fadeOut * 0.72;
 
             // Faint synaptic cleft path
             ctx.beginPath();
             ctx.moveTo(fp.x, fp.y);
             ctx.quadraticCurveTo(mx, my, tp.x, tp.y);
-            ctx.strokeStyle = `hsla(205, 75%, 72%, ${alpha * 0.22})`;
-            ctx.lineWidth   = 1.8;
+            ctx.strokeStyle = `hsla(205, 55%, 66%, ${alpha * 0.14})`;
+            ctx.lineWidth   = 1.2;
             ctx.stroke();
 
             // Comet tail behind the traveling vesicle
-            const tailT = Math.max(0, t - 0.18);
+            const tailT = Math.max(0, t - 0.26);
             const tailX = (1 - tailT) * (1 - tailT) * fp.x + 2 * (1 - tailT) * tailT * mx + tailT * tailT * tp.x;
             const tailY = (1 - tailT) * (1 - tailT) * fp.y + 2 * (1 - tailT) * tailT * my + tailT * tailT * tp.y;
             ctx.beginPath();
             ctx.moveTo(tailX, tailY);
             ctx.lineTo(x, y);
-            ctx.strokeStyle = `hsla(42, 80%, 68%, ${alpha * 0.56})`;
-            ctx.lineWidth   = 2.2;
+            ctx.strokeStyle = `hsla(40, 62%, 60%, ${alpha * 0.42})`;
+            ctx.lineWidth   = 1.65;
             ctx.lineCap     = "round";
             ctx.stroke();
 
-            const glow = ctx.createRadialGradient(x, y, 0, x, y, 9);
-            glow.addColorStop(0,   `rgba(225,170,100,${alpha * 0.38})`);
-            glow.addColorStop(0.45, `rgba(205,135,75,${alpha * 0.18})`);
+            const glow = ctx.createRadialGradient(x, y, 0, x, y, 7);
+            glow.addColorStop(0,   `rgba(210,145,85,${alpha * 0.24})`);
+            glow.addColorStop(0.5, `rgba(185,115,70,${alpha * 0.1})`);
             glow.addColorStop(1,   `rgba(255,190,110,0)`);
             ctx.beginPath();
-            ctx.arc(x, y, 9, 0, Math.PI * 2);
+            ctx.arc(x, y, 7, 0, Math.PI * 2);
             ctx.fillStyle = glow;
             ctx.fill();
 
             ctx.beginPath();
-            ctx.arc(x, y, 2.3, 0, Math.PI * 2);
-            ctx.fillStyle = `rgba(230,165,95,${alpha * 0.72})`;
+            ctx.arc(x, y, 1.7, 0, Math.PI * 2);
+            ctx.fillStyle = `rgba(210,140,85,${alpha * 0.48})`;
             ctx.fill();
           }
 
@@ -1380,15 +1431,15 @@ const NeuralCanvas = () => {
             ctx.beginPath();
             ctx.moveTo(pts[0].x, pts[0].y);
             for (let pi = 1; pi < pts.length; pi++) ctx.lineTo(pts[pi].x, pts[pi].y);
-            ctx.strokeStyle = `hsla(${trail.hue}, 80%, 68%, ${trail.alpha * 0.15})`;
-            ctx.lineWidth   = 5;
+            ctx.strokeStyle = `hsla(${trail.hue}, 70%, 62%, ${trail.alpha * 0.1})`;
+            ctx.lineWidth   = 4.2;
             ctx.stroke();
 
             ctx.beginPath();
             ctx.moveTo(pts[0].x, pts[0].y);
             for (let pi = 1; pi < pts.length; pi++) ctx.lineTo(pts[pi].x, pts[pi].y);
-            ctx.strokeStyle = `hsla(${trail.hue + 5}, 95%, 88%, ${trail.alpha * 0.82})`;
-            ctx.lineWidth   = 1.8;
+            ctx.strokeStyle = `hsla(${trail.hue + 5}, 75%, 78%, ${trail.alpha * 0.48})`;
+            ctx.lineWidth   = 1.35;
             ctx.stroke();
           }
           ctx.restore();
