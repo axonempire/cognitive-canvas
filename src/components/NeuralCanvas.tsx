@@ -144,7 +144,7 @@ const NeuralCanvas = () => {
     const randRange = (min: number, max: number) => min + Math.random() * (max - min);
 
     // ── Fog patch field ──────────────────────────────────────────────
-    const FOG_COUNT = 14;
+    const FOG_COUNT = 0;
     const fogPatches: FogPatch[] = [];
     for (let i = 0; i < FOG_COUNT; i++) {
       fogPatches.push({
@@ -1045,8 +1045,8 @@ const NeuralCanvas = () => {
             ctx.beginPath();
             ctx.moveTo(pts[0].x, pts[0].y);
             for (let pi = 1; pi < pts.length; pi++) ctx.lineTo(pts[pi].x, pts[pi].y);
-            ctx.strokeStyle = `hsla(${trail.hue}, 88%, 70%, ${trail.alpha * 0.18})`;
-            ctx.lineWidth   = 8;
+            ctx.strokeStyle = `hsla(${trail.hue}, 88%, 70%, ${trail.alpha * 0.08})`;
+            ctx.lineWidth   = 4.5;
             ctx.stroke();
 
             // Core luminous thread
@@ -1068,13 +1068,15 @@ const NeuralCanvas = () => {
       }
 
       // ── Fog patches (rendered to offscreen canvas, no blur filter) ─
-      fogUpdateCounter++;
-      if (fogUpdateCounter >= FOG_UPDATE_INTERVAL || fogDirty) {
-        fogUpdateCounter = 0;
-        fogDirty = false;
-        renderFogOffscreen();
+      if (FOG_COUNT > 0) {
+        fogUpdateCounter++;
+        if (fogUpdateCounter >= FOG_UPDATE_INTERVAL || fogDirty) {
+          fogUpdateCounter = 0;
+          fogDirty = false;
+          renderFogOffscreen();
+        }
+        ctx.drawImage(fogCanvas, 0, 0);
       }
-      ctx.drawImage(fogCanvas, 0, 0);
 
       // ── Vignette (cached offscreen) ────────────────────────────────
       if (vignetteNeedsRender) renderVignette();
