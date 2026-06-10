@@ -79,9 +79,9 @@ interface Vesicle {
 }
 
 const LAYER_CONFIG = [
-  { scale: 0.45, opacity: 0.25, blur: 0, parallax: 0, ratio: 0.25 },
-  { scale: 1.0,  opacity: 1.0,  blur: 0, parallax: 0, ratio: 0.55 },
-  { scale: 1.8,  opacity: 0.30, blur: 0, parallax: 0, ratio: 0.20 },
+  { scale: 0.45, opacity: 0.12, blur: 0, parallax: 0, ratio: 0.16 },
+  { scale: 1.0,  opacity: 1.0,  blur: 0, parallax: 0, ratio: 0.58 },
+  { scale: 1.8,  opacity: 0.16, blur: 0, parallax: 0, ratio: 0.10 },
 ];
 
 const NeuralCanvas = () => {
@@ -184,41 +184,42 @@ const NeuralCanvas = () => {
     for (let layerIdx = 0; layerIdx < 3; layerIdx++) {
       const cfg   = LAYER_CONFIG[layerIdx];
       const count = Math.round(totalCount * cfg.ratio);
+      const isMidLayer = layerIdx === 1;
 
       for (let i = 0; i < count; i++) {
-        const dendriteCount = Math.floor(randRange(5, 9));
+        const dendriteCount = Math.floor(randRange(isMidLayer ? 4 : 2, isMidLayer ? 7 : 4));
         const dendrites: Dendrite[] = [];
 
         for (let d = 0; d < dendriteCount; d++) {
           const baseAngle   = (d / dendriteCount) * Math.PI * 2 + randRange(-0.35, 0.35);
-          const branchCount = Math.floor(randRange(3, 6));
+          const branchCount = Math.floor(randRange(isMidLayer ? 2 : 1, isMidLayer ? 4 : 3));
           const branches: Dendrite["branches"][0][] = [];
 
           for (let b = 0; b < branchCount; b++) {
-            const subBranchCount = Math.random() > 0.2 ? Math.floor(randRange(2, 5)) : 1;
+            const subBranchCount = isMidLayer && Math.random() > 0.45 ? Math.floor(randRange(1, 3)) : 0;
             const subBranches: { angle: number; length: number; curve1: number; curve2: number }[] = [];
             for (let s = 0; s < subBranchCount; s++) {
               subBranches.push({
                 angle: randRange(-0.9, 0.9),
-                length: randRange(8, 20) * cfg.scale,
+                length: randRange(7, 14) * cfg.scale,
                 curve1: randRange(-0.22, 0.22),
                 curve2: randRange(-0.16, 0.16),
               });
             }
             branches.push({
               angle:       randRange(-0.7, 0.7),
-              length:      randRange(18, 42) * cfg.scale,
+              length:      randRange(isMidLayer ? 16 : 10, isMidLayer ? 34 : 22) * cfg.scale,
               swayPhase:   Math.random() * Math.PI * 2,
               swaySpeed:   0.003 + Math.random() * 0.006,
               swayAmount:  0.02 + Math.random() * 0.04,
               curve1:      randRange(-0.28, 0.28),
               curve2:      randRange(-0.2, 0.2),
-              subBranches,
+              subBranches: subBranches.length ? subBranches : undefined,
             });
           }
           dendrites.push({
             angle:      baseAngle,
-            length:     randRange(38, 68) * cfg.scale,
+            length:     randRange(isMidLayer ? 34 : 22, isMidLayer ? 60 : 40) * cfg.scale,
             swayPhase:  Math.random() * Math.PI * 2,
             swaySpeed:  (0.002 + Math.random() * 0.004) * (layerIdx === 0 ? 0.6 : layerIdx === 2 ? 1.4 : 1),
             swayAmount: 0.015 + Math.random() * 0.03,
@@ -230,7 +231,7 @@ const NeuralCanvas = () => {
 
         const avgAngle     = dendrites.reduce((s, d) => s + d.angle, 0) / dendrites.length;
         const axonAngle    = avgAngle + Math.PI + randRange(-0.4, 0.4);
-        const terminalCount = Math.floor(randRange(5, 9));
+        const terminalCount = Math.floor(randRange(isMidLayer ? 4 : 2, isMidLayer ? 7 : 4));
         const terminals: { angle: number; length: number; curve1: number; curve2: number }[] = [];
         for (let t = 0; t < terminalCount; t++) {
           terminals.push({
@@ -250,7 +251,7 @@ const NeuralCanvas = () => {
           pulsePhase:       Math.random() * Math.PI * 2,
           pulseSpeed:       0.008 + Math.random() * 0.012,
           dendrites,
-          axon: { angle: axonAngle, length: randRange(60, 120) * cfg.scale, curve1: randRange(-0.18, 0.18), curve2: randRange(-0.12, 0.12), terminals },
+          axon: { angle: axonAngle, length: randRange(isMidLayer ? 52 : 34, isMidLayer ? 96 : 62) * cfg.scale, curve1: randRange(-0.18, 0.18), curve2: randRange(-0.12, 0.12), terminals },
           rotation:         Math.random() * Math.PI * 2,
           rotationSpeed:    randRange(-0.0003, 0.0003),
           firing:           false,
